@@ -406,10 +406,10 @@ export const loadStoredSettings = () => {
     if (storedManualPraiseVolume) {
       useAppStore.setState({ manualPraiseVolume: parseInt(storedManualPraiseVolume, 10) });
     }
-    if (storedSiteName) {
+    if (storedSiteName !== null) {
       useAppStore.setState({ siteName: storedSiteName });
     }
-    if (storedSiteSubtitle) {
+    if (storedSiteSubtitle !== null) {
       useAppStore.setState({ siteSubtitle: storedSiteSubtitle });
     }
   } catch (error) {
