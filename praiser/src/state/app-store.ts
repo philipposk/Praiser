@@ -415,7 +415,6 @@ export const loadStoredSettings = () => {
   } catch (error) {
     console.error("Error loading settings from localStorage:", error);
   }
-  }
   
   // Load chats from storage
   const chats = loadChatsFromStorage();
