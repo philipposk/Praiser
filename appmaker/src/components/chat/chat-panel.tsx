@@ -7,10 +7,8 @@ import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 
 export const ChatPanel = () => {
-  const { messages, isProcessing } = useAppStore((state) => ({
-    messages: state.messages,
-    isProcessing: state.isProcessing,
-  }));
+  const messages = useAppStore((state) => state.messages);
+  const isProcessing = useAppStore((state) => state.isProcessing);
 
   return (
     <section className="flex h-full flex-col gap-4">
