@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd appmaker && npm run build",
+  "outputDirectory": "appmaker/.next",
+  "installCommand": "cd appmaker && npm install"
+}
+

@@ -20,12 +20,34 @@ This guide will help you set up email addresses like `info@praiser.6x7.gr` or `c
 
 **Best for:** Most users, free tier available
 
+### ⚠️ Important: Finding the Free Plan
+
+The free plan might not be visible on the pricing page. Here's how to get it:
+
+**Option A: Sign up directly**
+- Go to [mail.zoho.com](https://mail.zoho.com)
+- Click **"Sign Up"** or **"Create Account"**
+- Look for **"Free Plan"** or **"Free Forever"** option
+- If you only see paid plans, try the next option
+
+**Option B: Use the free signup link**
+- Go directly to: [zoho.com/mail/pricing.html](https://www.zoho.com/mail/pricing.html)
+- Scroll down to find the **"Free Forever"** plan
+- Or go to: [zoho.com/mail/free-email.html](https://www.zoho.com/mail/free-email.html)
+
+**Option C: Start with trial, then switch**
+- You can start with a paid plan trial
+- After setup, contact Zoho support to switch to free plan
+- Or cancel before trial ends and they may offer free plan
+
 ### Setup Steps:
 
 1. **Sign up for Zoho Mail**:
-   - Go to [zoho.com/mail](https://www.zoho.com/mail/)
-   - Click "Sign Up Now"
-   - Choose "Free Plan" (5 users, 5GB each)
+   - Go to [mail.zoho.com](https://mail.zoho.com) or [zoho.com/mail](https://www.zoho.com/mail/)
+   - Click "Sign Up Now" or "Create Account"
+   - **Look for "Free Plan"** or "Free Forever" option
+   - If you don't see it, try: [zoho.com/mail/free-email.html](https://www.zoho.com/mail/free-email.html)
+   - Free plan includes: **5 users, 5GB storage each**
    - Enter your details
 
 2. **Add your domain**:
@@ -107,24 +129,72 @@ This guide will help you set up email addresses like `info@praiser.6x7.gr` or `c
 
 ---
 
-## Option 3: Check papaki.com Email Hosting
+## Option 3: Papaki.com Email Hosting (Native Solution)
 
-**Best for:** If your registrar offers it (might be included or cheap)
+**Best for:** If you want to keep everything with Papaki, your domain registrar
 
-### Steps:
+### Understanding Your DNS Setup
 
-1. **Log in to papaki.com**
-2. **Look for email options**:
-   - Check your control panel for "Email" or "Email Hosting"
-   - Look in the services list (like in your screenshot)
-   - Check if there's an "Email Plans" section
+**What are DNS1 and DNS2?**
+- `dns1.papaki.gr` and `dns2.papaki.gr` are **nameservers** - they're the servers that handle DNS queries for your domain
+- Since your domain uses Papaki's nameservers, Papaki is managing your DNS
+- This is normal and expected - it means all DNS changes (including email) are managed through Papaki
 
-3. **If available**:
-   - Purchase/activate email hosting
-   - Follow papaki.com's setup instructions
-   - Usually involves adding MX records (similar to Zoho)
+### Steps to Set Up Email with Papaki:
 
-**Cost:** Varies (check papaki.com pricing)
+1. **Access Email Packages**:
+   - Log in to [papaki.com](https://papaki.com)
+   - In your domain management panel for `6x7.gr`, look for **"Πακέτα Email"** (Email Packages) in the left sidebar
+   - Click on it to see available email plans
+
+2. **Choose and Activate Email Plan**:
+   - Review the available email packages (pricing varies)
+   - Select a plan that fits your needs
+   - Purchase/activate the email hosting service
+   - Papaki will activate email hosting for your domain
+
+3. **Configure Email Accounts**:
+   - After activation, you'll be able to create email accounts
+   - Look for an **"Email Accounts"** or **"Manage Email"** section
+   - Create email addresses like:
+     - `info@6x7.gr`
+     - `contact@6x7.gr`
+     - `hello@6x7.gr`
+     - `admin@6x7.gr`
+
+4. **DNS Configuration** (if needed):
+   - Papaki may automatically configure MX records for you
+   - If you need to add them manually:
+     - Go to **"Υπηρεσία DNS"** (DNS Service) in your domain management
+     - Click on **"ΓΙΑ ΠΡΟΧΩΡΗΜΕΝΟΥΣ"** (For Advanced) tab
+     - Add MX records that Papaki provides (usually something like `mail.papaki.gr` or similar)
+     - Papaki will show you the exact MX records to add
+
+5. **Access Your Email**:
+   - **Webmail**: Papaki usually provides a webmail interface
+     - Look for a "Webmail" link or access it via `webmail.papaki.gr` or similar
+     - Log in with your email address and password
+   - **Email Client Setup**: Use any email client (Outlook, Apple Mail, Thunderbird, etc.)
+     - **Incoming Mail (IMAP/POP3)**: Papaki will provide server details (usually `mail.papaki.gr` or `imap.papaki.gr`)
+     - **Outgoing Mail (SMTP)**: Usually `smtp.papaki.gr` or `mail.papaki.gr`
+     - **Ports**: Typically IMAP (143/993) and SMTP (587/465)
+     - Check Papaki's email documentation for exact settings
+
+6. **For Subdomain Email** (e.g., `info@praiser.6x7.gr`):
+   - If you want email on a subdomain, you may need to:
+     - Create the subdomain first (if not already done)
+     - Add MX records specifically for the subdomain in DNS settings
+     - Or use the root domain email and set up forwarding
+
+**Cost:** Varies (check papaki.com pricing - usually ranges from free (basic) to €2-5/month per mailbox)
+
+**Advantages:**
+- ✅ Everything managed in one place (domain + email)
+- ✅ No need to change nameservers
+- ✅ Direct support from your registrar
+- ✅ Usually simpler setup since DNS is already with Papaki
+
+**Note:** If Papaki's email pricing is too high, you can still use other services (like Zoho Mail) while keeping your domain with Papaki - just add their MX records in Papaki's DNS settings.
 
 ---
 
