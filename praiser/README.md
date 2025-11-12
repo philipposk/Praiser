@@ -63,3 +63,4 @@ Traces are captured on the first retry; reports are stored in `playwright-report
 - Conventional commits recommended (e.g., `feat: add person info panel`).
 - Run `pnpm lint` before submitting changes.
 - Set `PRAISER_USE_GROQ_STUB=true` when developing without credentials; remember to revert for production.
+
