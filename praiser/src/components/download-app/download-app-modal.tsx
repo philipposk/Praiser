@@ -56,20 +56,25 @@ export const DownloadAppModal = () => {
   };
 
   const showQRCode = deviceType === "desktop";
+  
+  // Don't show modal on mobile devices - they can install directly
+  const isMobileDevice = deviceType === "mobile";
 
   return (
     <>
-      {/* Download App Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-      >
-        <Download className="h-4 w-4" />
-        <span>Download App</span>
-      </button>
+      {/* Download App Button - Hidden on mobile */}
+      {!isMobileDevice && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+        >
+          <Download className="h-4 w-4" />
+          <span>Download App</span>
+        </button>
+      )}
 
-      {/* Modal */}
-      {isOpen && (
+      {/* Modal - Only show on desktop/tablet */}
+      {isOpen && !isMobileDevice && (
         <>
           {/* Backdrop */}
           <div
