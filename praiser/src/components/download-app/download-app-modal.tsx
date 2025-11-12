@@ -56,35 +56,30 @@ export const DownloadAppModal = () => {
   };
 
   const showQRCode = deviceType === "desktop";
-  
-  // Don't show modal on mobile devices - they can install directly
-  const isMobileDevice = deviceType === "mobile";
 
   return (
     <>
-      {/* Download App Button - Hidden on mobile */}
-      {!isMobileDevice && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-        >
-          <Download className="h-4 w-4" />
-          <span>Download App</span>
-        </button>
-      )}
+      {/* Download App Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+      >
+        <Download className="h-4 w-4" />
+        <span>Download App</span>
+      </button>
 
-      {/* Modal - Only show on desktop/tablet */}
-      {isOpen && !isMobileDevice && (
+      {/* Modal */}
+      {isOpen && (
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[99] bg-black/60 backdrop-blur-sm"
             onClick={handleClose}
             aria-hidden="true"
           />
           
           {/* Modal Content */}
-          <div className="fixed top-1/2 left-1/2 z-50 flex h-[90vh] max-h-[90vh] w-[90vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-2xl">
+          <div className="fixed top-1/2 left-1/2 z-[100] flex h-[90vh] max-h-[600px] w-[90vw] max-w-md mx-auto -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-2xl">
             {/* Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-white/5 p-6">
               <div className="flex items-center gap-3">
