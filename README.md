@@ -1,5 +1,7 @@
 # Praiser · AI Praise Assistant
 
+**AI Chatbot — Trained to shower your chosen hero with endless praise!**
+
 Praiser is a Next.js application that celebrates and praises a specific person. It uses Groq-powered AI to keep conversations focused on praising the person you choose, with customizable praise intensity and support for images, videos, URLs, and extra information.
 
 ## Key Features
