@@ -109,7 +109,7 @@ export const PersonInputPanel = () => {
       });
 
       const uploadedImages = (await Promise.all(uploadPromises)).filter(
-        (img): img is MessageImage => img !== null
+        (img) => img !== null
       ) as MessageImage[];
 
       setImages((prev) => [...prev, ...uploadedImages]);
