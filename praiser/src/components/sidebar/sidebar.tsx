@@ -30,7 +30,7 @@ const useKeyboardShortcut = () => {
   return shortcut;
 };
 
-export const Sidebar = () => {
+export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
   const uiLanguage = useAppStore((state) => state.uiLanguage);
   const siteName = useAppStore((state) => state.siteName);
   const t = useTranslation(uiLanguage);
@@ -58,10 +58,18 @@ export const Sidebar = () => {
     e?.preventDefault();
     e?.stopPropagation();
     newChat();
+    // Close sidebar on mobile after creating new chat
+    if (onClose && window.innerWidth < 1024) {
+      onClose();
+    }
   };
 
   const handleChatClick = (chatId: string) => {
     loadChat(chatId);
+    // Close sidebar on mobile after selecting a chat
+    if (onClose && window.innerWidth < 1024) {
+      onClose();
+    }
   };
 
   const handleDeleteChat = (e: React.MouseEvent, chatId: string) => {
@@ -195,7 +203,7 @@ export const Sidebar = () => {
   }, []);
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-white/5 bg-black/40">
+    <aside className="flex h-screen w-64 flex-col border-r border-white/5 bg-black/40 lg:bg-black/40 backdrop-blur-xl z-40">
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-white/5">
         <div 
