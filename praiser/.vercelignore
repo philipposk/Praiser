@@ -1,0 +1,24 @@
+# Exclude uploaded files from Vercel builds
+# These should be stored in Vercel Blob Storage, not in the repository
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Exclude local data files
+data/*
+!data/.gitkeep
+
+# Exclude test results
+test-results/
+
+# Exclude build artifacts
+.next/
+node_modules/
+
+# Exclude documentation files (optional, but reduces cache size)
+*.md
+!README.md
+
+# Exclude environment files
+.env*
+!.env.example
+
