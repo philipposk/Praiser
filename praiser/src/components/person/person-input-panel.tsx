@@ -23,27 +23,17 @@ export const PersonInputPanel = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // Load person info from API on mount
+  // Load person info from store (which loads from localStorage)
   useEffect(() => {
-    const loadPersonInfo = async () => {
-      try {
-        const response = await fetch("/api/person-info");
-        const data = await response.json();
-        if (data.personInfo) {
-          setPersonInfo(data.personInfo);
-          setName(data.personInfo.name || "");
-          setImages(data.personInfo.images || []);
-          setVideos(data.personInfo.videos || []);
-          setUrls(data.personInfo.urls || []);
-          setExtraInfo(data.personInfo.extraInfo || "");
-          setIsCollapsed(!!data.personInfo.name);
-        }
-      } catch (error) {
-        console.error("Error loading person info:", error);
-      }
-    };
-    loadPersonInfo();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (personInfo) {
+      setName(personInfo.name || "");
+      setImages(personInfo.images || []);
+      setVideos(personInfo.videos || []);
+      setUrls(personInfo.urls || []);
+      setExtraInfo(personInfo.extraInfo || "");
+      setIsCollapsed(!!personInfo.name);
+    }
+  }, [personInfo]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -56,15 +46,8 @@ export const PersonInputPanel = () => {
         extraInfo: extraInfo.trim(),
       };
       
-      // Save to store
+      // Save to store (which also saves to localStorage)
       setPersonInfo(personData);
-      
-      // Save to API
-      await fetch("/api/person-info", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personInfo: personData }),
-      });
       
       setIsCollapsed(true);
     } catch (error) {

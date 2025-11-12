@@ -120,10 +120,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
       });
       return { messages: newMessages };
     }),
-  setPersonInfo: (info) =>
+  setPersonInfo: (info) => {
+    if (typeof window !== "undefined") {
+      try {
+        if (info) {
+          localStorage.setItem("praiser-personInfo", JSON.stringify(info));
+        } else {
+          localStorage.removeItem("praiser-personInfo");
+        }
+      } catch (error) {
+        console.error("Error saving personInfo to localStorage:", error);
+      }
+    }
     set(() => ({
       personInfo: info,
-    })),
+    }));
+  },
   setPraiseVolume: (value) =>
     set(() => ({
       praiseVolume: Math.min(100, Math.max(0, value)),
@@ -392,6 +404,7 @@ export const loadStoredSettings = () => {
     const storedManualPraiseVolume = localStorage.getItem("praiser-manualPraiseVolume");
     const storedSiteName = localStorage.getItem("praiser-siteName");
     const storedSiteSubtitle = localStorage.getItem("praiser-siteSubtitle");
+    const storedPersonInfo = localStorage.getItem("praiser-personInfo");
     
     if (storedPraiseBarVisible !== null) {
       useAppStore.setState({ praiseBarVisible: storedPraiseBarVisible === "true" });
@@ -415,6 +428,14 @@ export const loadStoredSettings = () => {
     }
     if (storedSiteSubtitle !== null) {
       useAppStore.setState({ siteSubtitle: storedSiteSubtitle });
+    }
+    if (storedPersonInfo) {
+      try {
+        const personInfo = JSON.parse(storedPersonInfo);
+        useAppStore.setState({ personInfo });
+      } catch (error) {
+        console.error("Error parsing personInfo from localStorage:", error);
+      }
     }
   } catch (error) {
     console.error("Error loading settings from localStorage:", error);

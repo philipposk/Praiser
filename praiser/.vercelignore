@@ -10,9 +10,9 @@ data/*
 # Exclude test results
 test-results/
 
-# Exclude build artifacts
-.next/
-node_modules/
+# Exclude build artifacts (Vercel handles these automatically)
+# .next/
+# node_modules/
 
 # Exclude documentation files (optional, but reduces cache size)
 *.md
