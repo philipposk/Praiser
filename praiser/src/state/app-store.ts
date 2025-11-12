@@ -130,7 +130,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     })),
   setPraiseBarVisible: (visible) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("praiser-praiseBarVisible", String(visible));
+      try {
+        localStorage.setItem("praiser-praiseBarVisible", String(visible));
+      } catch (error) {
+        console.error("Error saving praiseBarVisible to localStorage:", error);
+      }
     }
     set(() => ({
       praiseBarVisible: visible,
@@ -138,7 +142,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   setPraiseMode: (mode) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("praiser-praiseMode", mode);
+      try {
+        localStorage.setItem("praiser-praiseMode", mode);
+      } catch (error) {
+        console.error("Error saving praiseMode to localStorage:", error);
+      }
     }
     set(() => ({
       praiseMode: mode,
@@ -149,7 +157,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setManualPraiseVolume: (value) => {
     const clampedValue = Math.min(100, Math.max(0, value));
     if (typeof window !== "undefined") {
-      localStorage.setItem("praiser-manualPraiseVolume", String(clampedValue));
+      try {
+        localStorage.setItem("praiser-manualPraiseVolume", String(clampedValue));
+      } catch (error) {
+        console.error("Error saving manualPraiseVolume to localStorage:", error);
+      }
     }
     set(() => ({
       manualPraiseVolume: clampedValue,
@@ -165,7 +177,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     })),
   setSiteName: (name) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("praiser-siteName", name);
+      try {
+        localStorage.setItem("praiser-siteName", name);
+      } catch (error) {
+        console.error("Error saving siteName to localStorage:", error);
+      }
     }
     set(() => ({
       siteName: name, // Allow spaces, don't trim
@@ -173,7 +189,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   setSiteSubtitle: (subtitle) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("praiser-siteSubtitle", subtitle);
+      try {
+        localStorage.setItem("praiser-siteSubtitle", subtitle);
+      } catch (error) {
+        console.error("Error saving siteSubtitle to localStorage:", error);
+      }
     }
     set(() => ({
       siteSubtitle: subtitle,
@@ -365,31 +385,36 @@ export const useAppStore = create<AppStore>((set, get) => ({
 export const loadStoredSettings = () => {
   if (typeof window === "undefined") return;
   
-  const storedPraiseBarVisible = localStorage.getItem("praiser-praiseBarVisible");
-  const storedPraiseMode = localStorage.getItem("praiser-praiseMode");
-  const storedManualPraiseVolume = localStorage.getItem("praiser-manualPraiseVolume");
-  const storedSiteName = localStorage.getItem("praiser-siteName");
-  const storedSiteSubtitle = localStorage.getItem("praiser-siteSubtitle");
-  
-  if (storedPraiseBarVisible !== null) {
-    useAppStore.setState({ praiseBarVisible: storedPraiseBarVisible === "true" });
-  }
-  if (storedPraiseMode) {
-    const praiseMode = storedPraiseMode as PraiseMode;
-    useAppStore.setState({ praiseMode });
-    // Reset praise volume to 0 for auto-random and crescendo modes on page load
-    if (praiseMode === "auto-random" || praiseMode === "crescendo") {
-      useAppStore.setState({ praiseVolume: 0 });
+  try {
+    const storedPraiseBarVisible = localStorage.getItem("praiser-praiseBarVisible");
+    const storedPraiseMode = localStorage.getItem("praiser-praiseMode");
+    const storedManualPraiseVolume = localStorage.getItem("praiser-manualPraiseVolume");
+    const storedSiteName = localStorage.getItem("praiser-siteName");
+    const storedSiteSubtitle = localStorage.getItem("praiser-siteSubtitle");
+    
+    if (storedPraiseBarVisible !== null) {
+      useAppStore.setState({ praiseBarVisible: storedPraiseBarVisible === "true" });
     }
+    if (storedPraiseMode) {
+      const praiseMode = storedPraiseMode as PraiseMode;
+      useAppStore.setState({ praiseMode });
+      // Reset praise volume to 0 for auto-random and crescendo modes on page load
+      if (praiseMode === "auto-random" || praiseMode === "crescendo") {
+        useAppStore.setState({ praiseVolume: 0 });
+      }
+    }
+    if (storedManualPraiseVolume) {
+      useAppStore.setState({ manualPraiseVolume: parseInt(storedManualPraiseVolume, 10) });
+    }
+    if (storedSiteName) {
+      useAppStore.setState({ siteName: storedSiteName });
+    }
+    if (storedSiteSubtitle) {
+      useAppStore.setState({ siteSubtitle: storedSiteSubtitle });
+    }
+  } catch (error) {
+    console.error("Error loading settings from localStorage:", error);
   }
-  if (storedManualPraiseVolume) {
-    useAppStore.setState({ manualPraiseVolume: parseInt(storedManualPraiseVolume, 10) });
-  }
-  if (storedSiteName) {
-    useAppStore.setState({ siteName: storedSiteName });
-  }
-  if (storedSiteSubtitle) {
-    useAppStore.setState({ siteSubtitle: storedSiteSubtitle });
   }
   
   // Load chats from storage
