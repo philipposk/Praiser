@@ -74,6 +74,16 @@ export const metadata: Metadata = {
   title: "Praiser · AI Praise Assistant",
   description:
     "Praiser is an AI that celebrates and praises the person you choose. Add their info, set the praise volume, and watch the magic happen!",
+  applicationName: "Praiser",
+  appleWebApp: {
+    capable: true,
+    title: "Praiser",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  manifest: "/manifest.json",
 };
 
 export const viewport = {
