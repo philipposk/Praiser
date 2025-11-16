@@ -155,8 +155,8 @@ const DEFAULT_SETTINGS = {
     extraInfo:
       "Ο Μιχάλης Κουκλάδας – αλλιώς ο Μιχάλης ο Κουκλάδας, ο Κουκλάδασ, ο Κουκ, ο Μάικ, το Μιχαλιό. Είχε GLX, Kawasaki Z 750, XT 500 R και έκανε σουζες. Τώρα είναι κυριλές, έχει Beverly και φοράει κράνος. Είναι τούμπανο, είναι φέτες."
   },
-  praiseBarVisible: true,
-  praiseMode: "manual" as PraiseMode,
+  praiseBarVisible: false,
+  praiseMode: "crescendo" as PraiseMode,
   manualPraiseVolume: 70,
   siteName: "Praiser",
   siteSubtitle: "AI Praise Assistant",
@@ -285,8 +285,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   messages: [],
   personInfo: null,
   praiseVolume: 70,
-  praiseBarVisible: true, // Default, will be loaded from localStorage on client
-  praiseMode: "manual", // Default, will be loaded from localStorage on client
+  praiseBarVisible: false, // Default, will be loaded from localStorage on client
+  praiseMode: "crescendo", // Default, will be loaded from localStorage on client
   manualPraiseVolume: 70, // Default, will be loaded from localStorage on client
   isProcessing: false,
   uiLanguage: "en",
@@ -591,8 +591,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       messages: [],
       personInfo: null,
       praiseVolume: 70,
-      praiseBarVisible: true,
-      praiseMode: "manual",
+      praiseBarVisible: false,
+      praiseMode: "crescendo",
       manualPraiseVolume: 70,
       isProcessing: false,
       uiLanguage: "en",
