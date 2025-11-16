@@ -71,6 +71,129 @@ const saveChatsToStorage = (chats: Chat[]) => {
   }
 };
 
+// Save all settings to API
+const saveSettingsToAPI = async (settings: {
+  personInfo: PersonInfo | null;
+  praiseBarVisible: boolean;
+  praiseMode: PraiseMode;
+  manualPraiseVolume: number;
+  siteName: string;
+  siteSubtitle: string;
+  chats: Chat[];
+}) => {
+  if (typeof window === "undefined") return;
+  
+  try {
+    console.log("Saving settings to API...", {
+      personInfo: settings.personInfo ? "present" : "null",
+      praiseBarVisible: settings.praiseBarVisible,
+      praiseMode: settings.praiseMode,
+      siteName: settings.siteName,
+      chatsCount: settings.chats.length,
+    });
+    
+    const response = await fetch("/api/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ settings }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error saving settings to API:", response.status, response.statusText, errorText);
+      // Don't throw - allow localStorage to still work as fallback
+      console.warn("Settings saved to localStorage as fallback");
+      return;
+    }
+    
+    const result = await response.json();
+    console.log("Settings saved successfully to API:", result);
+    
+    // Store the blob URL if provided (for faster future loads)
+    if (result.url && typeof window !== "undefined") {
+      try {
+        localStorage.setItem("praiser-settings-blob-url", result.url);
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+    }
+  } catch (error) {
+    console.error("Error saving settings to API:", error);
+    // Don't throw - allow localStorage to still work as fallback
+    console.warn("Settings saved to localStorage as fallback");
+  }
+};
+
+// Default settings to use when no API settings exist
+const DEFAULT_SETTINGS = {
+  personInfo: null,
+  praiseBarVisible: true,
+  praiseMode: "manual" as PraiseMode,
+  manualPraiseVolume: 70,
+  siteName: "Mike's Chatbot",
+  siteSubtitle: "Powered by AI",
+  chats: [],
+};
+
+// Load settings from API
+const loadSettingsFromAPI = async (): Promise<{
+  personInfo: PersonInfo | null;
+  praiseBarVisible: boolean;
+  praiseMode: PraiseMode;
+  manualPraiseVolume: number;
+  siteName: string;
+  siteSubtitle: string;
+  chats: Chat[];
+}> => {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  
+  try {
+    console.log("Loading settings from API...");
+    
+    // Try to fetch with cache busting to get fresh settings
+    const response = await fetch("/api/settings?" + Date.now(), {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    });
+    
+    if (!response.ok) {
+      // 404 is expected if no settings exist yet - return defaults
+      if (response.status === 404) {
+        console.log("No settings found in API (first time use) - using defaults");
+        return DEFAULT_SETTINGS;
+      }
+      console.error("Error loading settings from API:", response.status, response.statusText, "- using defaults");
+      return DEFAULT_SETTINGS;
+    }
+    
+    const data = await response.json();
+    if (data.settings) {
+      console.log("Settings loaded from API:", {
+        personInfo: data.settings.personInfo ? "present" : "null",
+        praiseBarVisible: data.settings.praiseBarVisible,
+        praiseMode: data.settings.praiseMode,
+        siteName: data.settings.siteName,
+        chatsCount: data.settings.chats?.length || 0,
+      });
+      // Merge with defaults to ensure all fields are present
+      return {
+        ...DEFAULT_SETTINGS,
+        ...data.settings,
+      };
+    } else {
+      console.log("No settings in API response - using defaults");
+      return DEFAULT_SETTINGS;
+    }
+  } catch (error) {
+    console.error("Error loading settings from API:", error, "- using defaults");
+    return DEFAULT_SETTINGS;
+  }
+};
+
 // Debounce helper for auto-save
 let saveTimeout: NodeJS.Timeout | null = null;
 const debouncedSave = (saveFn: () => void, delay: number = 500) => {
@@ -86,6 +209,50 @@ const clearPendingSave = () => {
     clearTimeout(saveTimeout);
     saveTimeout = null;
   }
+};
+
+// Debounced save settings to API
+let settingsSaveTimeout: NodeJS.Timeout | null = null;
+const debouncedSaveSettings = (getState: () => AppStore, delay: number = 500) => {
+  if (settingsSaveTimeout) {
+    clearTimeout(settingsSaveTimeout);
+  }
+  settingsSaveTimeout = setTimeout(() => {
+    const state = getState();
+    saveSettingsToAPI({
+      personInfo: state.personInfo,
+      praiseBarVisible: state.praiseBarVisible,
+      praiseMode: state.praiseMode,
+      manualPraiseVolume: state.manualPraiseVolume,
+      siteName: state.siteName,
+      siteSubtitle: state.siteSubtitle,
+      chats: state.chats,
+    }).catch((error) => {
+      console.error("Failed to save settings to API:", error);
+    });
+  }, delay);
+};
+
+// Immediate save (no debounce) - for critical actions
+const immediateSaveSettings = (getState: () => AppStore) => {
+  // Clear any pending debounced save
+  if (settingsSaveTimeout) {
+    clearTimeout(settingsSaveTimeout);
+    settingsSaveTimeout = null;
+  }
+  // Save immediately
+  const state = getState();
+  saveSettingsToAPI({
+    personInfo: state.personInfo,
+    praiseBarVisible: state.praiseBarVisible,
+    praiseMode: state.praiseMode,
+    manualPraiseVolume: state.manualPraiseVolume,
+    siteName: state.siteName,
+    siteSubtitle: state.siteSubtitle,
+    chats: state.chats,
+  }).catch((error) => {
+    console.error("Failed to save settings to API:", error);
+  });
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -135,6 +302,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(() => ({
       personInfo: info,
     }));
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   setPraiseVolume: (value) =>
     set(() => ({
@@ -151,6 +320,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(() => ({
       praiseBarVisible: visible,
     }));
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   setPraiseMode: (mode) => {
     if (typeof window !== "undefined") {
@@ -165,6 +336,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // Reset volume when switching modes
       praiseVolume: mode === "auto-random" || mode === "crescendo" ? 0 : 70,
     }));
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   setManualPraiseVolume: (value) => {
     const clampedValue = Math.min(100, Math.max(0, value));
@@ -178,6 +351,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(() => ({
       manualPraiseVolume: clampedValue,
     }));
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   setProcessing: (value) =>
     set(() => ({
@@ -199,6 +374,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(() => ({
       siteName: name, // Allow spaces, don't trim
     }));
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   setSiteSubtitle: (subtitle) => {
     if (typeof window !== "undefined") {
@@ -211,6 +388,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(() => ({
       siteSubtitle: subtitle,
     }));
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   setChatName: (name) =>
     set((state) => {
@@ -263,6 +442,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       currentChatId: chat.id,
       chatName: chat.name,
     });
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   loadChat: (chatId: string) => {
     const state = get();
@@ -303,6 +484,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } else {
       set({ chats: updatedChats });
     }
+    // Save to API (debounced)
+    debouncedSaveSettings(get);
   },
   newChat: () => {
     const state = get();
@@ -362,6 +545,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         chatName: "",
         chats: updatedChats,
       }));
+      // Save to API (debounced)
+      debouncedSaveSettings(get);
     } else {
       // No messages to save, just clear
       // Reset praise volume to 0 for auto-random and crescendo modes, otherwise keep at 70
@@ -393,55 +578,79 @@ export const useAppStore = create<AppStore>((set, get) => ({
     })),
 }));
 
-// Load from localStorage on client side to avoid hydration mismatch
+// Load from API (always) - API returns defaults if no settings exist
 // This will be called after component mount
-export const loadStoredSettings = () => {
+// localStorage is only used as a write-through cache
+export const loadStoredSettings = async () => {
   if (typeof window === "undefined") return;
   
-  try {
-    const storedPraiseBarVisible = localStorage.getItem("praiser-praiseBarVisible");
-    const storedPraiseMode = localStorage.getItem("praiser-praiseMode");
-    const storedManualPraiseVolume = localStorage.getItem("praiser-manualPraiseVolume");
-    const storedSiteName = localStorage.getItem("praiser-siteName");
-    const storedSiteSubtitle = localStorage.getItem("praiser-siteSubtitle");
-    const storedPersonInfo = localStorage.getItem("praiser-personInfo");
-    
-    if (storedPraiseBarVisible !== null) {
-      useAppStore.setState({ praiseBarVisible: storedPraiseBarVisible === "true" });
-    }
-    if (storedPraiseMode) {
-      const praiseMode = storedPraiseMode as PraiseMode;
-      useAppStore.setState({ praiseMode });
-      // Reset praise volume to 0 for auto-random and crescendo modes on page load
-      if (praiseMode === "auto-random" || praiseMode === "crescendo") {
-        useAppStore.setState({ praiseVolume: 0 });
-      }
-    }
-    if (storedManualPraiseVolume) {
-      useAppStore.setState({ manualPraiseVolume: parseInt(storedManualPraiseVolume, 10) });
-    }
-    if (storedSiteName !== null) {
-      console.log("Loading siteName from localStorage:", storedSiteName);
-      useAppStore.setState({ siteName: storedSiteName });
-    } else {
-      console.log("No siteName found in localStorage");
-    }
-    if (storedSiteSubtitle !== null) {
-      useAppStore.setState({ siteSubtitle: storedSiteSubtitle });
-    }
-    if (storedPersonInfo) {
-      try {
-        const personInfo = JSON.parse(storedPersonInfo);
-        useAppStore.setState({ personInfo });
-      } catch (error) {
-        console.error("Error parsing personInfo from localStorage:", error);
-      }
-    }
-  } catch (error) {
-    console.error("Error loading settings from localStorage:", error);
-  }
+  console.log("🔄 loadStoredSettings: Starting to load settings from API...");
   
-  // Load chats from storage
-  const chats = loadChatsFromStorage();
-  useAppStore.setState({ chats });
+  try {
+    // ALWAYS load from API - it will return defaults if no settings exist
+    // This ensures all users (including incognito) get the same settings
+    const apiSettings = await loadSettingsFromAPI();
+    
+    console.log("✅ loadStoredSettings: Settings loaded from API, applying to store...");
+    
+    // Build updates object
+    const updates: Partial<AppStore> = {
+      personInfo: apiSettings.personInfo,
+      praiseBarVisible: apiSettings.praiseBarVisible,
+      praiseMode: apiSettings.praiseMode,
+      manualPraiseVolume: apiSettings.manualPraiseVolume,
+      siteName: apiSettings.siteName,
+      siteSubtitle: apiSettings.siteSubtitle,
+      chats: apiSettings.chats,
+    };
+    
+    // Reset praise volume for auto modes
+    if (apiSettings.praiseMode === "auto-random" || apiSettings.praiseMode === "crescendo") {
+      updates.praiseVolume = 0;
+    }
+    
+    // Save to localStorage as a cache (for faster subsequent loads)
+    // This is a write-through cache - API is always the source of truth
+    try {
+      if (apiSettings.personInfo) {
+        localStorage.setItem("praiser-personInfo", JSON.stringify(apiSettings.personInfo));
+      } else {
+        localStorage.removeItem("praiser-personInfo");
+      }
+      localStorage.setItem("praiser-praiseBarVisible", String(apiSettings.praiseBarVisible));
+      localStorage.setItem("praiser-praiseMode", apiSettings.praiseMode);
+      localStorage.setItem("praiser-manualPraiseVolume", String(apiSettings.manualPraiseVolume));
+      localStorage.setItem("praiser-siteName", apiSettings.siteName);
+      localStorage.setItem("praiser-siteSubtitle", apiSettings.siteSubtitle);
+      saveChatsToStorage(apiSettings.chats);
+    } catch (e) {
+      // Ignore localStorage errors (incognito mode, quota exceeded, etc.)
+      console.warn("⚠️ Could not cache settings to localStorage:", e);
+    }
+    
+    // Apply all updates at once
+    console.log("✅ Applying settings from API:", {
+      praiseBarVisible: updates.praiseBarVisible,
+      praiseMode: updates.praiseMode,
+      siteName: updates.siteName,
+      chatsCount: updates.chats?.length || 0,
+    });
+    useAppStore.setState(updates);
+    console.log("✅ Settings successfully loaded from API and applied!");
+  } catch (error) {
+    console.error("❌ Error loading settings from API:", error);
+    // If API fails, we already returned defaults from loadSettingsFromAPI
+    // So this should never happen, but log it for debugging
+  }
+};
+
+// Export function to save settings to API (for use outside the store)
+// Must be defined after useAppStore is created
+export const saveSettingsToServer = (immediate: boolean = false) => {
+  const state = useAppStore.getState();
+  if (immediate) {
+    immediateSaveSettings(() => state);
+  } else {
+    debouncedSaveSettings(() => state, 500);
+  }
 };
