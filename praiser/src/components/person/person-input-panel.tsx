@@ -23,17 +23,57 @@ export const PersonInputPanel = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
+  const isInitializingRef = useRef(true);
+  const hasInitializedRef = useRef(false);
+  
   // Load person info from store (which loads from localStorage)
   useEffect(() => {
     if (personInfo) {
+      isInitializingRef.current = true;
       setName(personInfo.name || "");
       setImages(personInfo.images || []);
       setVideos(personInfo.videos || []);
       setUrls(personInfo.urls || []);
       setExtraInfo(personInfo.extraInfo || "");
       setIsCollapsed(!!personInfo.name);
-        }
+      // Reset flag after a brief delay to allow state to settle
+      setTimeout(() => {
+        isInitializingRef.current = false;
+        hasInitializedRef.current = true;
+      }, 100);
+    } else if (!hasInitializedRef.current) {
+      // If no personInfo and we haven't initialized yet, mark as initialized
+      setTimeout(() => {
+        isInitializingRef.current = false;
+        hasInitializedRef.current = true;
+      }, 100);
+    }
   }, [personInfo]);
+
+  // Auto-save to store whenever fields change (but not during initialization)
+  useEffect(() => {
+    // Skip auto-save during initialization or if nothing is filled
+    if (isInitializingRef.current) {
+      return;
+    }
+    
+    // Don't auto-save if name is empty and no other data (user hasn't started yet)
+    if (!name.trim() && images.length === 0 && videos.length === 0 && urls.length === 0 && !extraInfo.trim()) {
+      return;
+    }
+    
+    const personData = {
+      name: name.trim(),
+      images,
+      videos,
+      urls: urls.filter(u => u.trim()),
+      extraInfo: extraInfo.trim(),
+    };
+    
+    // Auto-save to store (which triggers immediate API save)
+    console.log("💾 Auto-saving person info to store...", personData.name || "unnamed");
+    setPersonInfo(personData);
+  }, [name, images, videos, urls, extraInfo, setPersonInfo]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -46,7 +86,7 @@ export const PersonInputPanel = () => {
         extraInfo: extraInfo.trim(),
       };
       
-      // Save to store (which also saves to localStorage)
+      // Save to store (which also saves to localStorage and API)
       setPersonInfo(personData);
       
       setIsCollapsed(true);

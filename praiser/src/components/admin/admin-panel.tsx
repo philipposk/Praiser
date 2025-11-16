@@ -95,7 +95,7 @@ export const AdminPanel = ({
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // Check if we need to show notification for locked mode
     if (praiseMode === "manual" && !praiseBarVisible) {
       const confirmed = window.confirm(
@@ -103,6 +103,14 @@ export const AdminPanel = ({
       );
       if (!confirmed) return;
     }
+    
+    // Save ALL settings (including person info, name, photos, crescendo, etc.) before closing
+    console.log("💾 Saving all settings before closing admin panel...");
+    saveSettingsToServer(true); // Immediate save
+    
+    // Wait a moment for the save to initiate (setPersonInfo already triggers immediate save)
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
     setIsAuthenticated(false);
     onClose();
   };
