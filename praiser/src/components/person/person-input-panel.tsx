@@ -32,7 +32,7 @@ export const PersonInputPanel = () => {
       setUrls(personInfo.urls || []);
       setExtraInfo(personInfo.extraInfo || "");
       setIsCollapsed(!!personInfo.name);
-    }
+        }
   }, [personInfo]);
 
   const handleSave = async () => {

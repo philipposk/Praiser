@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Settings, X, Lock, Eye, EyeOff, AlertCircle, Check } from "lucide-react";
-import { useAppStore, type PraiseMode } from "@/state/app-store";
+import { useAppStore, type PraiseMode, saveSettingsToServer } from "@/state/app-store";
 import { cn } from "@/lib/utils";
 import { PersonInputPanel } from "@/components/person/person-input-panel";
 import { PraiseVolumeControl } from "@/components/praise/praise-volume-control";
@@ -10,8 +10,13 @@ import { PraiseVolumeControl } from "@/components/praise/praise-volume-control";
 const ADMIN_USERNAME = "username";
 const ADMIN_PASSWORD = "password";
 
-export const AdminPanel = () => {
-  const [isOpen, setIsOpen] = useState(false);
+export const AdminPanel = ({ 
+  isOpen, 
+  onClose 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+}) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -36,33 +41,43 @@ export const AdminPanel = () => {
   const siteSubtitle = useAppStore((state) => state.siteSubtitle);
   const setSiteSubtitle = useAppStore((state) => state.setSiteSubtitle);
 
-  // Show checkmark when settings are changed
+  // Show checkmark when settings are changed and save immediately
   const handlePraiseModeChange = (mode: PraiseMode) => {
     setPraiseMode(mode);
+    // Save immediately for admin settings
+    setTimeout(() => saveSettingsToServer(true), 100);
     setSavedStates((prev) => ({ ...prev, praiseMode: true }));
     setTimeout(() => setSavedStates((prev) => ({ ...prev, praiseMode: false })), 2000);
   };
 
   const handlePraiseBarVisibleChange = () => {
     setPraiseBarVisible(!praiseBarVisible);
+    // Save immediately for admin settings
+    setTimeout(() => saveSettingsToServer(true), 100);
     setSavedStates((prev) => ({ ...prev, praiseBarVisible: true }));
     setTimeout(() => setSavedStates((prev) => ({ ...prev, praiseBarVisible: false })), 2000);
   };
 
   const handleManualPraiseVolumeChange = (value: number) => {
     setManualPraiseVolume(value);
+    // Save immediately for admin settings
+    setTimeout(() => saveSettingsToServer(true), 100);
     setSavedStates((prev) => ({ ...prev, manualPraiseVolume: true }));
     setTimeout(() => setSavedStates((prev) => ({ ...prev, manualPraiseVolume: false })), 2000);
   };
 
   const handleSiteNameChange = (value: string) => {
     setSiteName(value);
+    // Save immediately for admin settings
+    setTimeout(() => saveSettingsToServer(true), 100);
     setSavedStates((prev) => ({ ...prev, siteName: true }));
     setTimeout(() => setSavedStates((prev) => ({ ...prev, siteName: false })), 2000);
   };
 
   const handleSiteSubtitleChange = (value: string) => {
     setSiteSubtitle(value);
+    // Save immediately for admin settings
+    setTimeout(() => saveSettingsToServer(true), 100);
     setSavedStates((prev) => ({ ...prev, siteSubtitle: true }));
     setTimeout(() => setSavedStates((prev) => ({ ...prev, siteSubtitle: false })), 2000);
   };
@@ -89,7 +104,7 @@ export const AdminPanel = () => {
       if (!confirmed) return;
     }
     setIsAuthenticated(false);
-    setIsOpen(false);
+    onClose();
   };
 
   // Show notification when trying to close panel with locked mode
@@ -100,20 +115,11 @@ export const AdminPanel = () => {
       );
       if (!confirmed) return;
     }
-    setIsOpen(false);
+    onClose();
   };
 
   if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-50 rounded-full bg-black/20 p-2 text-white/20 transition hover:bg-black/40 hover:text-white/40"
-        aria-label="Admin settings"
-        title="Admin"
-      >
-        <Settings className="h-3 w-3" />
-      </button>
-    );
+    return null;
   }
 
   // Get mode description
@@ -175,6 +181,7 @@ export const AdminPanel = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter username"
+                  autoComplete="username"
                   className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-accent focus:outline-none"
                   autoFocus
                 />
@@ -191,6 +198,7 @@ export const AdminPanel = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
+                    autoComplete="current-password"
                     className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2 pr-10 text-sm text-white placeholder:text-white/40 focus:border-accent focus:outline-none"
                   />
                   <button

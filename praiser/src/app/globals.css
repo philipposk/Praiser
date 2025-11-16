@@ -94,8 +94,6 @@ input[type="range"]::-moz-range-thumb {
 }
 
 input[type="range"].modern-vertical-slider {
-  -webkit-appearance: slider-vertical;
-  appearance: slider-vertical;
   width: 200px;
   height: 8px;
   transform: rotate(-90deg);
@@ -103,6 +101,8 @@ input[type="range"].modern-vertical-slider {
   background: transparent;
   cursor: pointer;
   z-index: 10;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 input[type="range"].modern-vertical-slider::-webkit-slider-thumb {

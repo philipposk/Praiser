@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Clock, User, Trash2, Pencil, FileText, Check, X } from "lucide-react";
-import { useAppStore } from "@/state/app-store";
+import { Plus, Clock, User, Trash2, Pencil, FileText, Check, X, Settings } from "lucide-react";
+import { useAppStore, saveSettingsToServer } from "@/state/app-store";
 import { useTranslation } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { DownloadAppModal } from "@/components/download-app/download-app-modal";
@@ -30,7 +30,13 @@ const useKeyboardShortcut = () => {
   return shortcut;
 };
 
-export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
+export const Sidebar = ({ 
+  onClose,
+  onOpenSettings 
+}: { 
+  onClose?: () => void;
+  onOpenSettings?: () => void;
+}) => {
   const uiLanguage = useAppStore((state) => state.uiLanguage);
   const siteName = useAppStore((state) => state.siteName);
   const t = useTranslation(uiLanguage);
@@ -106,6 +112,9 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
       if (chatId === currentChatId) {
         setChatName(newName);
       }
+      
+      // Save to API
+      saveSettingsToServer();
     }
     setEditingChatId(null);
     setRenameValue("");
@@ -370,15 +379,25 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
       {/* User Profile */}
       <div className="border-t border-white/5 p-3">
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 transition hover:bg-white/5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-white">
-            <User className="h-4 w-4" />
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-sm font-medium text-white">User</p>
-            <p className="text-xs text-white/40">Free Plan</p>
-          </div>
-        </button>
+        <div className="flex w-full items-center gap-2">
+          <button className="flex flex-1 items-center gap-3 rounded-lg px-3 py-2 transition hover:bg-white/5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-white">
+              <User className="h-4 w-4" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-medium text-white">User</p>
+              <p className="text-xs text-white/40">Free Plan</p>
+            </div>
+          </button>
+          <button
+            onClick={onOpenSettings}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/5 hover:text-white"
+            aria-label="Settings"
+            title="Admin Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );

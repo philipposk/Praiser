@@ -12,10 +12,13 @@ import { cn } from "@/lib/utils";
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   
-  // Load stored settings from localStorage on client mount
+  // Load stored settings from API (with localStorage fallback) on client mount
   useEffect(() => {
-    loadStoredSettings();
+    loadStoredSettings().catch((error) => {
+      console.error("Error loading settings:", error);
+    });
   }, []);
   
   // Load person info on app startup
@@ -49,13 +52,19 @@ export default function Home() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <Sidebar onClose={() => setSidebarOpen(false)} />
+        <Sidebar 
+          onClose={() => setSidebarOpen(false)} 
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
       </div>
 
       <div className="flex flex-1 flex-col min-w-0">
         <ChatPanel />
       </div>
-      <AdminPanel />
+      <AdminPanel 
+        isOpen={settingsOpen} 
+        onClose={() => setSettingsOpen(false)} 
+      />
     </main>
   );
 }
