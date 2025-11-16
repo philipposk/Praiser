@@ -239,7 +239,7 @@ export const ChatComposer = ({ className }: ChatComposerProps) => {
           <textarea
             ref={textareaRef}
             id="praiser-message"
-            className="max-h-[200px] min-h-[24px] flex-1 resize-none bg-transparent text-sm leading-6 text-white placeholder:text-white/40 focus:outline-none"
+            className="max-h-[200px] min-h-[24px] flex-1 resize-none bg-transparent text-base leading-6 text-white placeholder:text-white/40 focus:outline-none"
             placeholder={t.askAnything}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
