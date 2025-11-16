@@ -215,18 +215,18 @@ export const Sidebar = ({
     <aside className="flex h-screen w-64 flex-col border-r border-white/5 bg-black/40 lg:bg-black/40 backdrop-blur-xl z-40">
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-white/5">
-        <a 
-          href="https://6x7.gr"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-2xl font-bold text-white/70 hover:text-white transition-all duration-300 hover:-translate-y-0.5"
+        <div 
+          className="flex h-8 w-8 items-center justify-center rounded-full text-xl text-white font-calligraphic" 
           style={{ 
-            transform: 'rotate(-8deg)',
-            display: 'inline-block'
+            fontFamily: 'var(--font-kalam), cursive', 
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)',
+            paddingTop: '1px',
+            paddingLeft: '0.5px'
           }}
         >
-          6x7.gr
-        </a>
+          {logoLetter}
+        </div>
       </div>
 
       {/* New Chat Button */}
@@ -398,6 +398,27 @@ export const Sidebar = ({
             <Settings className="h-4 w-4" />
           </button>
         </div>
+      </div>
+
+      {/* Built by 6x7 */}
+      <div className="border-t border-white/5 p-3">
+        <a 
+          href="https://6x7.gr"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 text-sm text-white/40 hover:text-white/70 transition-all duration-300"
+        >
+          <span>Built by</span>
+          <span 
+            className="font-bold text-lg hover:-translate-y-0.5 transition-transform duration-300"
+            style={{ 
+              transform: 'rotate(-8deg)',
+              display: 'inline-block'
+            }}
+          >
+            6x7
+          </span>
+        </a>
       </div>
     </aside>
   );
