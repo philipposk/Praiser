@@ -6,15 +6,31 @@ const SETTINGS_BLOB_KEY = "settings.json";
 // Default settings to return when no blob exists
 const DEFAULT_SETTINGS = {
   personInfo: {
-    name: "Άδωνης Γεωργίαδης",
-    images: [],
-    videos: [],
-    urls: [
-      "https://www.adonisgeorgiadis.gr",
-      "https://en.wikipedia.org/wiki/Adonis_Georgiadis",
-      "https://nd.gr/georgiadis-spyridon-adonis"
+    name: "Μιχάλης Κουκλάδας",
+    images: [
+      { url: "/uploads/images/1762934145576-wtk4h8bf7n.jpg", type: "image/jpeg", name: "1762934145576-wtk4h8bf7n.jpg" },
+      { url: "/uploads/images/1762934145589-fwur6r98to.jpg", type: "image/jpeg", name: "1762934145589-fwur6r98to.jpg" },
+      { url: "/uploads/images/1762934145605-g2lsch1v9ue.jpg", type: "image/jpeg", name: "1762934145605-g2lsch1v9ue.jpg" },
+      { url: "/uploads/images/1762934145611-yxrei1sspz.jpeg", type: "image/jpeg", name: "1762934145611-yxrei1sspz.jpeg" },
+      { url: "/uploads/images/1762934145622-iau992szepd.jpeg", type: "image/jpeg", name: "1762934145622-iau992szepd.jpeg" },
+      { url: "/uploads/images/1762934145629-75nyhrxy6xi.jpg", type: "image/jpeg", name: "1762934145629-75nyhrxy6xi.jpg" },
+      { url: "/uploads/images/1762934639740-surbwtqvhh.jpg", type: "image/jpeg", name: "1762934639740-surbwtqvhh.jpg" },
+      { url: "/uploads/images/1762934639741-1ju429llgco.jpg", type: "image/jpeg", name: "1762934639741-1ju429llgco.jpg" },
+      { url: "/uploads/images/1762934639745-q4ax61hcgih.jpg", type: "image/jpeg", name: "1762934639745-q4ax61hcgih.jpg" },
+      { url: "/uploads/images/1762934639746-ajajtffmcjg.jpg", type: "image/jpeg", name: "1762934639746-ajajtffmcjg.jpg" },
+      { url: "/uploads/images/1762934639747-ofdah12gt5h.jpg", type: "image/jpeg", name: "1762934639747-ofdah12gt5h.jpg" },
+      { url: "/uploads/images/1762934639751-2ek4x2l79p5.jpg", type: "image/jpeg", name: "1762934639751-2ek4x2l79p5.jpg" },
+      { url: "/uploads/images/1762934639792-d19x4miu1tc.jpg", type: "image/jpeg", name: "1762934639792-d19x4miu1tc.jpg" },
+      { url: "/uploads/images/1762934639799-g0577p7eik.jpg", type: "image/jpeg", name: "1762934639799-g0577p7eik.jpg" },
+      { url: "/uploads/images/1762934639800-hr5xjt8bwbw.jpg", type: "image/jpeg", name: "1762934639800-hr5xjt8bwbw.jpg" },
+      { url: "/uploads/images/1762934639801-9eynxk6v5lg.jpg", type: "image/jpeg", name: "1762934639801-9eynxk6v5lg.jpg" },
+      { url: "/uploads/images/1762934639802-i0fgrwu63va.jpg", type: "image/jpeg", name: "1762934639802-i0fgrwu63va.jpg" },
+      { url: "/uploads/images/1762934639803-6nqwvaknjao.jpg", type: "image/jpeg", name: "1762934639803-6nqwvaknjao.jpg" }
     ],
-    extraInfo: "Σπυρίδων-Άδωνις Γεωργιάδης (nickname: μπουμπούκος) - Greek politician born November 6, 1972 in Athens. Minister of Development and Investments. Vice President of New Democracy party. Former Minister of Health (2013-2014). Historian and publisher. Graduated from the Department of History and Archaeology, School of Philosophy, National and Kapodistrian University of Athens. Founded the publishing house Georgiadis and the Center for Free Studies 'Greek Education' (Ελληνική Αγωγή). Married to Eugenia Manolidou, two children."
+    videos: [],
+    urls: [],
+    extraInfo:
+      "Ο Μιχάλης Κουκλάδας – αλλιώς ο Μιχάλης ο Κουκλάδας, ο Κουκλάδασ, ο Κουκ, ο Μάικ, το Μιχαλιό. Είχε GLX, Kawasaki Z 750, XT 500 R και έκανε σουζες. Τώρα είναι κυριλές, έχει Beverly και φοράει κράνος. Είναι τούμπανο, είναι φέτες."
   },
   praiseBarVisible: true,
   praiseMode: "manual",
