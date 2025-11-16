@@ -5,12 +5,22 @@ const SETTINGS_BLOB_KEY = "settings.json";
 
 // Default settings to return when no blob exists
 const DEFAULT_SETTINGS = {
-  personInfo: null,
+  personInfo: {
+    name: "Άδωνης Γεωργίαδης",
+    images: [],
+    videos: [],
+    urls: [
+      "https://www.adonisgeorgiadis.gr",
+      "https://en.wikipedia.org/wiki/Adonis_Georgiadis",
+      "https://nd.gr/georgiadis-spyridon-adonis"
+    ],
+    extraInfo: "Σπυρίδων-Άδωνις Γεωργιάδης (nickname: μπουμπούκος) - Greek politician born November 6, 1972 in Athens. Minister of Development and Investments. Vice President of New Democracy party. Former Minister of Health (2013-2014). Historian and publisher. Graduated from the Department of History and Archaeology, School of Philosophy, National and Kapodistrian University of Athens. Founded the publishing house Georgiadis and the Center for Free Studies 'Greek Education' (Ελληνική Αγωγή). Married to Eugenia Manolidou, two children."
+  },
   praiseBarVisible: true,
   praiseMode: "manual",
   manualPraiseVolume: 70,
-  siteName: "Mike's Chatbot",
-  siteSubtitle: "Powered by AI",
+  siteName: "Praiser",
+  siteSubtitle: "AI Praise Assistant",
   chats: [],
 };
 

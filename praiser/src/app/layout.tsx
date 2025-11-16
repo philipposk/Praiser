@@ -71,9 +71,9 @@ const permanentMarker = Permanent_Marker({
 });
 
 export const metadata: Metadata = {
-  title: "Mike's · AI Praise Assistant",
+  title: "Praiser · AI Praise Assistant",
   description:
-    "Mike's is an AI that celebrates and praises the person you choose. Add their info, set the praise volume, and watch the magic happen!",
+    "Praiser is an AI that celebrates and praises the person you choose. Add their info, set the praise volume, and watch the magic happen!",
 };
 
 export const viewport = {

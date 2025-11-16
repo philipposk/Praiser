@@ -2,7 +2,7 @@ export type Language = "en" | "el";
 
 export const translations = {
   en: {
-    title: "Mike's Chatbot",
+    title: "Praiser",
     subtitle: "Powered by AI",
     subtitles: [
       "Powered by AI",
