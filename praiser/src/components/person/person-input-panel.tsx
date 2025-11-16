@@ -25,6 +25,7 @@ export const PersonInputPanel = () => {
 
   const isInitializingRef = useRef(true);
   const hasInitializedRef = useRef(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Load person info from store (which loads from localStorage)
   useEffect(() => {
@@ -50,7 +51,7 @@ export const PersonInputPanel = () => {
     }
   }, [personInfo]);
 
-  // Auto-save to store whenever fields change (but not during initialization)
+  // Auto-save to store whenever fields change (debounced, not during initialization)
   useEffect(() => {
     // Skip auto-save during initialization or if nothing is filled
     if (isInitializingRef.current) {
@@ -62,17 +63,48 @@ export const PersonInputPanel = () => {
       return;
     }
     
-    const personData = {
-      name: name.trim(),
-      images,
-      videos,
-      urls: urls.filter(u => u.trim()),
-      extraInfo: extraInfo.trim(),
-    };
+    // Clear any pending auto-save
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
     
-    // Auto-save to store (which triggers immediate API save)
-    console.log("💾 Auto-saving person info to store...", personData.name || "unnamed");
-    setPersonInfo(personData);
+    // Debounce auto-save by 1 second (to avoid too many saves while typing)
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      const personData = {
+        name: name.trim(),
+        images,
+        videos,
+        urls: urls.filter(u => u.trim()),
+        extraInfo: extraInfo.trim(),
+      };
+      
+      // Check if images are data URLs (base64) - these are too large for blob storage
+      const hasDataUrls = images.some(img => img.url.startsWith('data:'));
+      if (hasDataUrls) {
+        console.warn("⚠️ Some images are data URLs - they need to be uploaded first!");
+      }
+      
+      // Auto-save to store (which triggers immediate API save)
+      console.log("💾 Auto-saving person info to store...", {
+        name: personData.name || "unnamed",
+        imagesCount: personData.images.length,
+        hasDataUrls,
+      });
+      
+      try {
+        setPersonInfo(personData);
+        console.log("✅ Person info saved to store successfully");
+      } catch (error) {
+        console.error("❌ Error saving person info to store:", error);
+      }
+    }, 1000); // 1 second debounce
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
   }, [name, images, videos, urls, extraInfo, setPersonInfo]);
 
   const handleSave = async () => {

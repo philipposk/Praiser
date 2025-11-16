@@ -104,13 +104,23 @@ export const AdminPanel = ({
       if (!confirmed) return;
     }
     
-    // Save ALL settings (including person info, name, photos, crescendo, etc.) before closing
-    console.log("💾 Saving all settings before closing admin panel...");
+    // Get current state to ensure we save the latest person info
+    const currentState = useAppStore.getState();
+    console.log("💾 Saving all settings before closing admin panel...", {
+      hasPersonInfo: !!currentState.personInfo,
+      personName: currentState.personInfo?.name || "none",
+      imagesCount: currentState.personInfo?.images?.length || 0,
+      praiseMode: currentState.praiseMode,
+      praiseBarVisible: currentState.praiseBarVisible,
+    });
+    
+    // Force immediate save of ALL settings
     saveSettingsToServer(true); // Immediate save
     
-    // Wait a moment for the save to initiate (setPersonInfo already triggers immediate save)
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Wait a moment for the save to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
     
+    console.log("✅ Settings save initiated, closing panel...");
     setIsAuthenticated(false);
     onClose();
   };
