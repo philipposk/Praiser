@@ -328,9 +328,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(() => ({
       personInfo: info,
     }));
-    // Save to API IMMEDIATELY (not debounced) - person info is critical
-    console.log("💾 Saving personInfo immediately to API...", info ? "has person" : "cleared");
-    immediateSaveSettings(get);
+    // Save to API (debounced) - EXACTLY like setPraiseMode
+    console.log("💾 Saving personInfo to API (debounced)...", info ? `name: ${info.name || "unnamed"}, images: ${info.images?.length || 0}` : "cleared");
+    debouncedSaveSettings(get);
   },
   setPraiseVolume: (value) =>
     set(() => ({

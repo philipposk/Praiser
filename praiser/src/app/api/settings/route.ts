@@ -191,10 +191,11 @@ export async function POST(request: NextRequest) {
     console.log("Calling put() with key:", SETTINGS_BLOB_KEY);
     
     // Save to Vercel Blob
-    // Using a consistent key - Vercel Blob will overwrite if the key already exists
+    // Using a consistent key - Vercel Blob requires allowOverwrite to overwrite existing blobs
     const blob = await put(SETTINGS_BLOB_KEY, settingsBlob, {
       access: "public",
       contentType: "application/json",
+      allowOverwrite: true, // CRITICAL: Allow overwriting existing settings blob
     });
 
     console.log("Settings saved to blob successfully:", {
