@@ -43,6 +43,8 @@ body {
   background: radial-gradient(circle at 20% 20%, var(--gradient-accent-1), transparent 45%),
     radial-gradient(circle at 80% 10%, var(--gradient-accent-2), transparent 40%),
     linear-gradient(180deg, var(--gradient-base-1), var(--gradient-base-2));
+  background-size: 200% 200%;
+  animation: gradientShift 15s ease infinite;
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -51,6 +53,31 @@ body {
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  position: relative;
+}
+
+/* Animated gradient shift */
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Subtle noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.03;
+  z-index: 1;
+  background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="3.5" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
 }
 
 /* Mobile optimizations */
@@ -166,4 +193,122 @@ input[type="range"].modern-vertical-slider::-webkit-slider-runnable-track {
 
 input[type="range"].modern-vertical-slider::-moz-range-track {
   background: transparent;
+}
+
+/* Enhanced transitions and micro-interactions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Better scroll behavior */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced button hover effects */
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Glow effect for interactive elements */
+.glow-on-hover:hover {
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.6), 
+              0 0 40px rgba(var(--accent-rgb), 0.3);
+}
+
+/* Status dot pulse animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.status-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Fade in animation for messages */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-fade-in {
+  animation: fadeInUp 0.4s ease;
+}
+
+/* Enhanced glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@media (prefers-color-scheme: light) {
+  .glass {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Better chat bubble shadows */
+.chat-bubble {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 
+              0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.chat-bubble-user {
+  background: linear-gradient(135deg, var(--accent), #ff5fc1);
+  box-shadow: 0 10px 25px rgba(var(--accent-rgb), 0.4);
+}
+
+.chat-bubble-assistant {
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 3px solid var(--accent);
+  backdrop-filter: blur(10px);
+}
+
+/* Floating orb animations */
+@keyframes floatOrb {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+/* Enhanced focus states */
+input:focus, textarea:focus, button:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+::-moz-selection {
+  background: var(--accent);
+  color: white;
 }

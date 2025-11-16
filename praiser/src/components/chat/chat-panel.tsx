@@ -72,11 +72,12 @@ export const ChatPanel = () => {
   return (
     <section className="flex h-full w-full flex-col bg-[#1a1a1a]">
       {/* Top Bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-3 glass">
         <div className="flex-1" />
-        <div className="flex-1 flex items-center justify-center">
-          <span className="text-sm text-white/60">
-            {chatName || (messages.length > 0 ? messages[0]?.content?.slice(0, 50) || "Chat" : "New Chat")}
+        <div className="flex-1 flex items-center justify-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-green-500 status-dot" />
+          <span className="text-sm text-white/70 font-medium tracking-wide uppercase text-[10px]">
+            {chatName || "Praiser · Live"}
           </span>
         </div>
         <div className="flex-1 flex items-center justify-end gap-2">
@@ -355,19 +356,19 @@ const MessageBubble = ({ message, messageIndex, allMessages }: MessageBubbleProp
   };
   
   return (
-    <div ref={messageRef} className="mx-auto flex w-full max-w-4xl gap-4 px-4 group">
+    <div ref={messageRef} className="mx-auto flex w-full max-w-4xl gap-4 px-4 group message-fade-in">
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-white">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-white status-dot">
           {logoLetter}
         </div>
       )}
       {isUser && <div className="flex-1" />}
       <div
         className={cn(
-          "relative flex-1 rounded-2xl px-4 py-3 text-sm leading-6",
+          "relative flex-1 rounded-2xl px-4 py-3 text-sm leading-6 transition-all duration-300",
           isUser
-            ? "bg-accent/20 text-white"
-            : "bg-white/5 text-white/90",
+            ? "chat-bubble-user text-white"
+            : "chat-bubble-assistant text-white/90",
         )}
       >
         {images && images.length > 0 && (

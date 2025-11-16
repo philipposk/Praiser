@@ -235,7 +235,7 @@ export const ChatComposer = ({ className }: ChatComposerProps) => {
         </div>
       )}
       <div className="mx-auto flex w-full max-w-4xl items-end gap-3">
-        <div className="flex flex-1 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 focus-within:border-white/20">
+        <div className="flex flex-1 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 focus-within:border-accent focus-within:shadow-[0_0_20px_rgba(106,91,255,0.3)] transition-all duration-300">
           <textarea
             ref={textareaRef}
             id="praiser-message"
@@ -297,7 +297,7 @@ export const ChatComposer = ({ className }: ChatComposerProps) => {
         </div>
         <button
           type="submit"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white transition-all duration-300 hover:bg-accent/90 hover:scale-105 hover:shadow-[0_0_30px_rgba(106,91,255,0.6)] glow-on-hover disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isProcessing || isTranscribing}
           aria-label={t.sendToMike}
         >
