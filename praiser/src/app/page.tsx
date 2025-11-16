@@ -27,14 +27,14 @@ export default function Home() {
   usePraiseMode();
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-background">
+    <main className="flex h-screen w-full overflow-hidden bg-background touch-manipulation">
       {/* Mobile menu button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed left-4 top-4 z-50 rounded-lg bg-black/40 p-2 text-white/80 backdrop-blur-sm lg:hidden"
+        className="fixed left-4 top-4 z-50 rounded-lg bg-black/40 p-3 text-white/80 backdrop-blur-sm lg:hidden touch-manipulation"
         aria-label="Toggle sidebar"
       >
-        {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </button>
 
       {/* Mobile backdrop */}
