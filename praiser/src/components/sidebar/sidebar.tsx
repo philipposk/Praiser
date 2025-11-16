@@ -215,18 +215,18 @@ export const Sidebar = ({
     <aside className="flex h-screen w-64 flex-col border-r border-white/5 bg-black/40 lg:bg-black/40 backdrop-blur-xl z-40">
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-white/5">
-        <div 
-          className="flex h-8 w-8 items-center justify-center rounded-full text-xl text-white font-calligraphic" 
+        <a 
+          href="https://6x7.gr"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-2xl font-bold text-white/70 hover:text-white transition-all duration-300 hover:-translate-y-0.5"
           style={{ 
-            fontFamily: 'var(--font-kalam), cursive', 
-            fontWeight: 700,
-            background: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)',
-            paddingTop: '1px',
-            paddingLeft: '0.5px'
+            transform: 'rotate(-8deg)',
+            display: 'inline-block'
           }}
         >
-          {logoLetter}
-        </div>
+          6x7.gr
+        </a>
       </div>
 
       {/* New Chat Button */}
