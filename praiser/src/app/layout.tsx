@@ -74,12 +74,13 @@ export const metadata: Metadata = {
   title: "Mike's · AI Praise Assistant",
   description:
     "Mike's is an AI that celebrates and praises the person you choose. Add their info, set the praise volume, and watch the magic happen!",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
