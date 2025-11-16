@@ -126,35 +126,13 @@ const saveSettingsToAPI = async (settings: {
   }
 };
 
+// Settings version - increment to force clear old incompatible settings
+const SETTINGS_VERSION = 2;
+
 // Default settings to use when no API settings exist
 const DEFAULT_SETTINGS = {
-  personInfo: {
-    name: "Μιχάλης Κουκλάδας",
-    images: [
-      { url: "/uploads/images/1762934145576-wtk4h8bf7n.jpg", type: "image/jpeg", name: "1762934145576-wtk4h8bf7n.jpg" },
-      { url: "/uploads/images/1762934145589-fwur6r98to.jpg", type: "image/jpeg", name: "1762934145589-fwur6r98to.jpg" },
-      { url: "/uploads/images/1762934145605-g2lsch1v9ue.jpg", type: "image/jpeg", name: "1762934145605-g2lsch1v9ue.jpg" },
-      { url: "/uploads/images/1762934145611-yxrei1sspz.jpeg", type: "image/jpeg", name: "1762934145611-yxrei1sspz.jpeg" },
-      { url: "/uploads/images/1762934145622-iau992szepd.jpeg", type: "image/jpeg", name: "1762934145622-iau992szepd.jpeg" },
-      { url: "/uploads/images/1762934145629-75nyhrxy6xi.jpg", type: "image/jpeg", name: "1762934145629-75nyhrxy6xi.jpg" },
-      { url: "/uploads/images/1762934639740-surbwtqvhh.jpg", type: "image/jpeg", name: "1762934639740-surbwtqvhh.jpg" },
-      { url: "/uploads/images/1762934639741-1ju429llgco.jpg", type: "image/jpeg", name: "1762934639741-1ju429llgco.jpg" },
-      { url: "/uploads/images/1762934639745-q4ax61hcgih.jpg", type: "image/jpeg", name: "1762934639745-q4ax61hcgih.jpg" },
-      { url: "/uploads/images/1762934639746-ajajtffmcjg.jpg", type: "image/jpeg", name: "1762934639746-ajajtffmcjg.jpg" },
-      { url: "/uploads/images/1762934639747-ofdah12gt5h.jpg", type: "image/jpeg", name: "1762934639747-ofdah12gt5h.jpg" },
-      { url: "/uploads/images/1762934639751-2ek4x2l79p5.jpg", type: "image/jpeg", name: "1762934639751-2ek4x2l79p5.jpg" },
-      { url: "/uploads/images/1762934639792-d19x4miu1tc.jpg", type: "image/jpeg", name: "1762934639792-d19x4miu1tc.jpg" },
-      { url: "/uploads/images/1762934639799-g0577p7eik.jpg", type: "image/jpeg", name: "1762934639799-g0577p7eik.jpg" },
-      { url: "/uploads/images/1762934639800-hr5xjt8bwbw.jpg", type: "image/jpeg", name: "1762934639800-hr5xjt8bwbw.jpg" },
-      { url: "/uploads/images/1762934639801-9eynxk6v5lg.jpg", type: "image/jpeg", name: "1762934639801-9eynxk6v5lg.jpg" },
-      { url: "/uploads/images/1762934639802-i0fgrwu63va.jpg", type: "image/jpeg", name: "1762934639802-i0fgrwu63va.jpg" },
-      { url: "/uploads/images/1762934639803-6nqwvaknjao.jpg", type: "image/jpeg", name: "1762934639803-6nqwvaknjao.jpg" }
-    ],
-    videos: [],
-    urls: [],
-    extraInfo:
-      "Ο Μιχάλης Κουκλάδας – αλλιώς ο Μιχάλης ο Κουκλάδας, ο Κουκλάδασ, ο Κουκ, ο Μάικ, το Μιχαλιό. Είχε GLX, Kawasaki Z 750, XT 500 R και έκανε σουζες. Τώρα είναι κυριλές, έχει Beverly και φοράει κράνος. Είναι τούμπανο, είναι φέτες."
-  },
+  version: SETTINGS_VERSION,
+  personInfo: null, // Start with no person - users must add their own
   praiseBarVisible: false,
   praiseMode: "crescendo" as PraiseMode,
   manualPraiseVolume: 70,
@@ -198,6 +176,12 @@ const loadSettingsFromAPI = async (): Promise<{
     
     const data = await response.json();
     if (data.settings) {
+      // Check version - if old version, ignore saved settings and use defaults
+      if (data.settings.version !== SETTINGS_VERSION) {
+        console.log("Settings version mismatch - using defaults. Old:", data.settings.version, "Current:", SETTINGS_VERSION);
+        return DEFAULT_SETTINGS;
+      }
+      
       console.log("Settings loaded from API:", {
         personInfo: data.settings.personInfo ? "present" : "null",
         praiseBarVisible: data.settings.praiseBarVisible,
@@ -209,6 +193,7 @@ const loadSettingsFromAPI = async (): Promise<{
       return {
         ...DEFAULT_SETTINGS,
         ...data.settings,
+        version: SETTINGS_VERSION, // Always use current version
       };
     } else {
       console.log("No settings in API response - using defaults");
