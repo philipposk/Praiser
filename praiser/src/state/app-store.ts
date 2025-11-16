@@ -84,7 +84,14 @@ const saveSettingsToAPI = async (settings: {
   if (typeof window === "undefined") return;
   
   try {
+    // Always include version when saving
+    const settingsWithVersion = {
+      ...settings,
+      version: SETTINGS_VERSION,
+    };
+    
     console.log("Saving settings to API...", {
+      version: SETTINGS_VERSION,
       personInfo: settings.personInfo ? "present" : "null",
       praiseBarVisible: settings.praiseBarVisible,
       praiseMode: settings.praiseMode,
@@ -97,7 +104,7 @@ const saveSettingsToAPI = async (settings: {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ settings }),
+      body: JSON.stringify({ settings: settingsWithVersion }),
     });
     
     if (!response.ok) {
@@ -176,13 +183,15 @@ const loadSettingsFromAPI = async (): Promise<{
     
     const data = await response.json();
     if (data.settings) {
-      // Check version - if old version, ignore saved settings and use defaults
-      if (data.settings.version !== SETTINGS_VERSION) {
-        console.log("Settings version mismatch - using defaults. Old:", data.settings.version, "Current:", SETTINGS_VERSION);
+      // Check version - if old version or missing, ignore saved settings and use defaults
+      const savedVersion = data.settings.version;
+      if (savedVersion !== SETTINGS_VERSION) {
+        console.log("Settings version mismatch - using defaults. Old:", savedVersion || "missing", "Current:", SETTINGS_VERSION);
         return DEFAULT_SETTINGS;
       }
       
       console.log("Settings loaded from API:", {
+        version: savedVersion,
         personInfo: data.settings.personInfo ? "present" : "null",
         praiseBarVisible: data.settings.praiseBarVisible,
         praiseMode: data.settings.praiseMode,
@@ -190,11 +199,17 @@ const loadSettingsFromAPI = async (): Promise<{
         chatsCount: data.settings.chats?.length || 0,
       });
       // Merge with defaults to ensure all fields are present
-      return {
+      const mergedSettings = {
         ...DEFAULT_SETTINGS,
         ...data.settings,
         version: SETTINGS_VERSION, // Always use current version
       };
+      console.log("Merged settings:", {
+        hasPersonInfo: !!mergedSettings.personInfo,
+        praiseMode: mergedSettings.praiseMode,
+        praiseBarVisible: mergedSettings.praiseBarVisible,
+      });
+      return mergedSettings;
     } else {
       console.log("No settings in API response - using defaults");
       return DEFAULT_SETTINGS;
@@ -313,8 +328,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(() => ({
       personInfo: info,
     }));
-    // Save to API (debounced)
-    debouncedSaveSettings(get);
+    // Save to API IMMEDIATELY (not debounced) - person info is critical
+    console.log("💾 Saving personInfo immediately to API...", info ? "has person" : "cleared");
+    immediateSaveSettings(get);
   },
   setPraiseVolume: (value) =>
     set(() => ({
@@ -641,6 +657,9 @@ export const loadStoredSettings = async () => {
     
     // Apply all updates at once
     console.log("✅ Applying settings from API:", {
+      hasPersonInfo: !!updates.personInfo,
+      personName: updates.personInfo?.name || "none",
+      personImagesCount: updates.personInfo?.images?.length || 0,
       praiseBarVisible: updates.praiseBarVisible,
       praiseMode: updates.praiseMode,
       siteName: updates.siteName,
