@@ -5,6 +5,8 @@ import { useCallback, useRef } from "react";
 import { useAppStore } from "@/state/app-store";
 import type { Message, MessageImage } from "@/lib/types";
 
+const PRAISE_REQUEST_TIMEOUT_MS = 60_000;
+
 export const useChatController = () => {
   const addMessage = useAppStore((state) => state.addMessage);
   const setProcessing = useAppStore((state) => state.setProcessing);
@@ -38,21 +40,36 @@ export const useChatController = () => {
           (message) => message.role === "user" || message.role === "assistant",
         );
 
-        const response = await fetch("/api/groq/praise", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messages: messagesPayload.map(({ role, content, images: msgImages }) => ({
-              role,
-              content,
-              images: msgImages,
-            })),
-            personInfo,
-            praiseVolume,
-          }),
-        });
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(
+          () => abortController.abort(),
+          PRAISE_REQUEST_TIMEOUT_MS,
+        );
+
+        let response: Response;
+        try {
+          response = await fetch("/api/groq/praise", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: abortController.signal,
+            body: JSON.stringify({
+              messages: messagesPayload.map(({ role, content, images: msgImages }) => ({
+                role,
+                content,
+                images: msgImages,
+              })),
+              personInfo,
+              praiseVolume,
+            }),
+          });
+        } catch (fetchError) {
+          if ((fetchError as { name?: string })?.name === "AbortError") {
+            throw new Error("Request timed out. Please try again.");
+          }
+          throw fetchError;
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (!response.ok) {
           const errorBody = await response.json().catch(() => ({}));

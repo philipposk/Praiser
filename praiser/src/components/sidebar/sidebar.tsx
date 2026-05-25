@@ -1,426 +1,123 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Plus, Clock, User, Trash2, Pencil, FileText, Check, X, Settings } from "lucide-react";
-import { useAppStore, saveSettingsToServer } from "@/state/app-store";
-import { useTranslation } from "@/lib/translations";
-import { cn } from "@/lib/utils";
-import { DownloadAppModal } from "@/components/download-app/download-app-modal";
+import { useMemo, useState } from "react";
 
-// Detect platform for keyboard shortcut display
-const useKeyboardShortcut = () => {
-  const [shortcut, setShortcut] = useState<string>("⌘K");
-  
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    
-    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) || 
-                  /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      setShortcut(""); // Hide on mobile
-    } else if (isMac) {
-      setShortcut("⌘K");
-    } else {
-      setShortcut("Ctrl+K");
-    }
-  }, []);
-  
-  return shortcut;
+import { Icon } from "@/components/ui/icon";
+import { useAppStore } from "@/state/app-store";
+
+const formatRelativeTime = (iso: string, lang: "el" | "en") => {
+  const now = Date.now();
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return "";
+  const diffMin = Math.floor((now - ts) / 60_000);
+
+  if (lang === "el") {
+    if (diffMin < 1) return "μόλις τώρα";
+    if (diffMin < 60) return `πριν ${diffMin} ${diffMin === 1 ? "λεπτό" : "λεπτά"}`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `πριν ${diffHr} ${diffHr === 1 ? "ώρα" : "ώρες"}`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay === 1) return "χθες";
+    if (diffDay < 7) return `${diffDay} ημέρες`;
+    return new Date(iso).toLocaleDateString("el-GR", { day: "numeric", month: "short" });
+  }
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay === 1) return "yesterday";
+  if (diffDay < 7) return `${diffDay} days`;
+  return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 };
 
-export const Sidebar = ({ 
-  onClose,
-  onOpenSettings 
-}: { 
-  onClose?: () => void;
-  onOpenSettings?: () => void;
-}) => {
-  const uiLanguage = useAppStore((state) => state.uiLanguage);
-  const siteName = useAppStore((state) => state.siteName);
-  const t = useTranslation(uiLanguage);
-  const chats = useAppStore((state) => state.chats);
-  const currentChatId = useAppStore((state) => state.currentChatId);
-  const messages = useAppStore((state) => state.messages);
-  const chatName = useAppStore((state) => state.chatName);
-  const setChatName = useAppStore((state) => state.setChatName);
-  const newChat = useAppStore((state) => state.newChat);
-  const loadChat = useAppStore((state) => state.loadChat);
-  const deleteChat = useAppStore((state) => state.deleteChat);
-  const keyboardShortcut = useKeyboardShortcut();
-  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
-  const [editingChatId, setEditingChatId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [showMenuChatId, setShowMenuChatId] = useState<string | null>(null);
-  const renameInputRef = useRef<HTMLInputElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  
-  // Get first letter of site name for logo (preserve case)
-  const logoLetter = siteName.trim() ? siteName.trim().charAt(0) : "M";
+export const Sidebar = () => {
+  const lang = useAppStore((s) => s.uiLanguage);
+  const chats = useAppStore((s) => s.chats);
+  const currentChatId = useAppStore((s) => s.currentChatId);
+  const newChat = useAppStore((s) => s.newChat);
+  const loadChat = useAppStore((s) => s.loadChat);
+  const deleteChat = useAppStore((s) => s.deleteChat);
+  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
 
-  const handleNewChat = (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    newChat();
-    // Close sidebar on mobile after creating new chat
-    if (onClose && window.innerWidth < 1024) {
-      onClose();
-    }
-  };
+  const [query, setQuery] = useState("");
 
-  const handleChatClick = (chatId: string) => {
-    loadChat(chatId);
-    // Close sidebar on mobile after selecting a chat
-    if (onClose && window.innerWidth < 1024) {
-      onClose();
-    }
-  };
+  const T = lang === "el"
+    ? { newChat: "Νέα συνομιλία", search: "Αναζήτηση συνομιλιών", history: "Ιστορικό", settings: "Ρυθμίσεις", account: "Λογαριασμός", empty: "Καμία συνομιλία ακόμα" }
+    : { newChat: "New chat", search: "Search chats", history: "History", settings: "Settings", account: "Account", empty: "No chats yet" };
 
-  const handleDeleteChat = (e: React.MouseEvent, chatId: string) => {
-    e.stopPropagation();
-    if (confirm("Are you sure you want to delete this chat?")) {
-      deleteChat(chatId);
-      setShowMenuChatId(null);
-    }
-  };
-
-  const handleEditChat = (e: React.MouseEvent, chatId: string) => {
-    e.stopPropagation();
-    const chat = chats.find(c => c.id === chatId);
-    if (chat) {
-      setEditingChatId(chatId);
-      setRenameValue(chat.name);
-      setShowMenuChatId(null);
-    }
-  };
-
-  const handleRenameSave = (chatId: string) => {
-    if (renameValue.trim()) {
-      const newName = renameValue.trim();
-      // Update the chat in the store
-      const updatedChats = chats.map(chat => 
-        chat.id === chatId ? { ...chat, name: newName } : chat
-      );
-      if (typeof window !== "undefined") {
-        localStorage.setItem("praiser-chats", JSON.stringify(updatedChats));
-      }
-      useAppStore.setState({ chats: updatedChats });
-      
-      // If this is the current chat, update the chat name in the store
-      if (chatId === currentChatId) {
-        setChatName(newName);
-      }
-      
-      // Save to API
-      saveSettingsToServer();
-    }
-    setEditingChatId(null);
-    setRenameValue("");
-  };
-
-  const handleRenameCancel = () => {
-    setEditingChatId(null);
-    setRenameValue("");
-  };
-
-  const handleExportChat = (chatId: string) => {
-    const chat = chats.find(c => c.id === chatId);
-    if (!chat || chat.messages.length === 0) {
-      alert("No messages to export");
-      return;
-    }
-
-    const chatTitle = chat.name || "Chat Export";
-    let exportText = `${chatTitle}\n${"=".repeat(chatTitle.length)}\n\n`;
-
-    chat.messages.forEach((message) => {
-      const role = message.role === "user" ? "You" : "Assistant";
-      const timestamp = new Date(message.createdAt).toLocaleString();
-      exportText += `[${role}] - ${timestamp}\n`;
-      exportText += `${message.content}\n\n`;
-    });
-
-    const blob = new Blob([exportText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${chatTitle.replace(/[^a-z0-9]/gi, "_")}_${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setShowMenuChatId(null);
-  };
-
-  // Focus rename input when editing starts
-  useEffect(() => {
-    if (editingChatId && renameInputRef.current) {
-      renameInputRef.current.focus();
-      renameInputRef.current.select();
-    }
-  }, [editingChatId]);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenuChatId(null);
-      }
-    };
-
-    if (showMenuChatId) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showMenuChatId]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
-  // Mark as mounted after hydration to prevent hydration mismatch
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Keyboard shortcut handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        handleNewChat();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const filtered = useMemo(() => {
+    if (!query.trim()) return chats;
+    const q = query.toLowerCase();
+    return chats.filter((c) => c.name.toLowerCase().includes(q));
+  }, [chats, query]);
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-white/5 bg-black/40 lg:bg-black/40 backdrop-blur-xl z-40">
-      {/* Logo */}
-      <div className="flex h-16 items-center justify-center border-b border-white/5">
-        <div 
-          className="flex h-8 w-8 items-center justify-center rounded-full text-xl text-white font-calligraphic" 
-          style={{ 
-            fontFamily: 'var(--font-kalam), cursive', 
-            fontWeight: 700,
-            background: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)',
-            paddingTop: '1px',
-            paddingLeft: '0.5px'
-          }}
-        >
-          {logoLetter}
-        </div>
+    <aside className="sidebar">
+      <div className="brand">
+        <span className="brand-mark">praiser<em>.</em></span>
       </div>
 
-      {/* New Chat Button */}
-      <div className="border-b border-white/5 p-3 space-y-2">
-        <button
-          type="button"
-          onClick={handleNewChat}
-          className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-        >
-          <Plus className="h-4 w-4" />
-          <span>New Chat</span>
-          {keyboardShortcut && (
-            <span className="ml-auto text-xs text-white/40">{keyboardShortcut}</span>
-          )}
-        </button>
-        <DownloadAppModal />
+      <button className="new-chat" onClick={() => newChat()}>
+        <Icon name="plus" size={15} />
+        <span>{T.newChat}</span>
+      </button>
+
+      <div className="search">
+        <Icon name="search" size={14} />
+        <input
+          placeholder={T.search}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
 
-      {/* Chat History */}
-      <div className="flex-1 overflow-y-auto p-3">
-        <div className="mb-2 flex items-center gap-2 px-2 text-xs font-medium uppercase tracking-wider text-white/40">
-          <Clock className="h-3 w-3" />
-          <span>Chat History</span>
+      <div
+        className="side-section"
+        style={{ flex: 1, minHeight: 0, overflowY: "auto", marginRight: -8, paddingRight: 8 }}
+      >
+        <div className="side-section-header">
+          <span className="label">{T.history}</span>
         </div>
-        {!isMounted ? (
-          // Show placeholder during SSR to match initial client render
-          <p className="px-2 text-xs text-white/40">No chat history</p>
-        ) : chats.length > 0 ? (
-          <div className="space-y-1">
-            {chats.map((chat) => {
-              const isActive = chat.id === currentChatId;
-              const isHovered = hoveredChatId === chat.id;
-              return (
-                <div
-                  key={chat.id}
-                  className={cn(
-                    "group relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition",
-                    isActive
-                      ? "bg-white/10 text-white"
-                      : "text-white/70 hover:bg-white/5 hover:text-white"
-                  )}
-                  onMouseEnter={() => setHoveredChatId(chat.id)}
-                  onMouseLeave={() => setHoveredChatId(null)}
-                >
-                  {editingChatId === chat.id ? (
-                    <div className="flex-1 flex items-center gap-1">
-                      <input
-                        ref={renameInputRef}
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleRenameSave(chat.id);
-                          } else if (e.key === "Escape") {
-                            handleRenameCancel();
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 bg-white/10 text-sm text-white focus:text-white focus:outline-none border border-white/20 rounded px-2 py-1"
-                        placeholder="Chat name"
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRenameSave(chat.id);
-                        }}
-                        className="rounded p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
-                        aria-label="Save"
-                      >
-                        <Check className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRenameCancel();
-                        }}
-                        className="rounded p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
-                        aria-label="Cancel"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => handleChatClick(chat.id)}
-                        className="flex-1 text-left truncate"
-                      >
-                        <div className="truncate font-medium">{chat.name}</div>
-                        <div className="text-xs text-white/40">{formatDate(chat.updatedAt)}</div>
-                      </button>
-                      {(isHovered || isActive) && (
-                        <div className="relative flex items-center gap-1" ref={menuRef}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowMenuChatId(showMenuChatId === chat.id ? null : chat.id);
-                            }}
-                            className="flex items-center justify-center rounded p-1 text-white/40 transition hover:bg-white/10 hover:text-white"
-                            aria-label="Chat options"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          {showMenuChatId === chat.id && (
-                            <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-white/10 bg-black/90 backdrop-blur-xl shadow-2xl z-50">
-                              <div className="p-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditChat(e, chat.id);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-white/90 transition hover:bg-white/10"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                  <span>Rename</span>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleExportChat(chat.id);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-white/90 transition hover:bg-white/10"
-                                >
-                                  <FileText className="h-3 w-3" />
-                                  <span>Export</span>
-                                </button>
-                                <button
-                                  onClick={(e) => handleDeleteChat(e, chat.id)}
-                                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-rose-400 transition hover:bg-white/10"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
+        {filtered.length === 0 && (
+          <div style={{ padding: "10px", fontSize: 12, color: "var(--muted-2)" }}>
+            {T.empty}
           </div>
-        ) : (
-          <p className="px-2 text-xs text-white/40">No chat history</p>
         )}
+        {filtered.map((c) => (
+          <div
+            key={c.id}
+            className={"chat-item " + (c.id === currentChatId ? "active" : "")}
+            onClick={() => loadChat(c.id)}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="chat-item-title">{c.name}</div>
+              <div className="chat-item-meta">{formatRelativeTime(c.updatedAt, lang)}</div>
+            </div>
+            <button
+              className="chat-item-delete"
+              aria-label="Delete chat"
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteChat(c.id);
+              }}
+            >
+              <Icon name="trash" size={12} />
+            </button>
+          </div>
+        ))}
       </div>
 
-      {/* User Profile */}
-      <div className="border-t border-white/5 p-3">
-        <div className="flex w-full items-center gap-2">
-          <button className="flex flex-1 items-center gap-3 rounded-lg px-3 py-2 transition hover:bg-white/5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-white">
-              <User className="h-4 w-4" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-white">User</p>
-              <p className="text-xs text-white/40">Free Plan</p>
-            </div>
-          </button>
-          <button
-            onClick={onOpenSettings}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/5 hover:text-white"
-            aria-label="Settings"
-            title="Admin Settings"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Built by 6x7 */}
-      <div className="border-t border-white/5 p-3">
-        <a 
-          href="https://6x7.gr"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 text-sm text-white/40 hover:text-white/70 transition-all duration-300"
-        >
-          <span>Built by</span>
-          <span 
-            className="font-bold text-lg hover:-translate-y-0.5 transition-transform duration-300"
-            style={{ 
-              transform: 'rotate(-8deg)',
-              display: 'inline-block'
-            }}
-          >
-            6x7
-          </span>
-        </a>
+      <div className="side-footer">
+        <button className="side-link" onClick={() => setSettingsOpen(true)}>
+          <Icon name="settings" size={14} />
+          {T.settings}
+        </button>
+        <button className="side-link">
+          <Icon name="user" size={14} />
+          {T.account}
+        </button>
       </div>
     </aside>
   );
 };
-

@@ -1,313 +1,302 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { Send, Mic, MicOff, Loader2, Image as ImageIcon, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import { cn } from "@/lib/utils";
-import { useTranslation } from "@/lib/translations";
-import { useAppStore } from "@/state/app-store";
-import type { MessageImage } from "@/lib/types";
+import { Icon } from "@/components/ui/icon";
 import { useChatController } from "@/hooks/use-chat-controller";
+import type { MessageImage } from "@/lib/types";
+import { useAppStore } from "@/state/app-store";
 
-type ChatComposerProps = {
-  className?: string;
-};
+export const ChatComposer = () => {
+  const lang = useAppStore((s) => s.uiLanguage);
+  const praiseVolume = useAppStore((s) => s.praiseVolume);
+  const liveMode = useAppStore((s) => s.liveMode);
+  const setLiveMode = useAppStore((s) => s.setLiveMode);
 
-export const ChatComposer = ({ className }: ChatComposerProps) => {
-  const messages = useAppStore((state) => state.messages);
+  const { sendUserMessage, isProcessing } = useChatController();
+
   const [draft, setDraft] = useState("");
-  const [attachedImages, setAttachedImages] = useState<MessageImage[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [attachments, setAttachments] = useState<MessageImage[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const isSubmittingRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { sendUserMessage, isProcessing } = useChatController();
-  const uiLanguage = useAppStore((state) => state.uiLanguage);
-  const t = useTranslation(uiLanguage);
+  const sendingRef = useRef(false);
 
-  // Auto-focus textarea on mount
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if ((!draft.trim() && attachedImages.length === 0) || isProcessing || isSubmittingRef.current) return;
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "28px";
+    ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
+  }, [draft]);
 
-    const messageToSend = draft.trim();
-    const imagesToSend = [...attachedImages];
+  const send = async () => {
+    if (sendingRef.current) return;
+    const text = draft.trim();
+    if (!text && attachments.length === 0) return;
+    const imagesToSend = [...attachments];
     setDraft("");
-    setAttachedImages([]);
-    isSubmittingRef.current = true;
-
+    setAttachments([]);
+    sendingRef.current = true;
     try {
-      await sendUserMessage(messageToSend || "See attached images", "text", imagesToSend);
+      await sendUserMessage(text || (lang === "el" ? "Δες αυτά" : "See these"), "text", imagesToSend);
     } finally {
-      isSubmittingRef.current = false;
+      sendingRef.current = false;
     }
   };
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/")) {
-        console.warn("Skipping non-image file:", file.name);
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        setAttachedImages((prev) => [
-          ...prev,
-          {
-            url: dataUrl,
-            type: file.type,
-            name: file.name,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // Reset input so same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void send();
     }
   };
 
-  const removeImage = (index: number) => {
-    setAttachedImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleVoiceToggle = async () => {
-    if (isProcessing || isTranscribing) return;
-
-    // If already recording, stop it
-    if (isRecording && mediaRecorderRef.current) {
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) continue;
       try {
-        // Stop recording
-        if (mediaRecorderRef.current.state !== "inactive") {
-          mediaRecorderRef.current.stop();
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "image");
+        const response = await fetch("/api/upload", { method: "POST", body: formData });
+        if (response.ok) {
+          const data = await response.json();
+          setAttachments((prev) => [
+            ...prev,
+            { url: data.url, type: file.type, name: file.name },
+          ]);
+        } else {
+          // fallback to data URL on upload failure
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setAttachments((prev) => [
+              ...prev,
+              { url: ev.target?.result as string, type: file.type, name: file.name },
+            ]);
+          };
+          reader.readAsDataURL(file);
         }
-        // Don't set isRecording to false here - let the stop event handler do it
-        return;
-      } catch (error) {
-        console.error("Error stopping recording:", error);
-        cleanupStream();
-        return;
+      } catch {
+        // ignore individual file failure
       }
     }
-
-    // Start recording
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg",
-      });
-      chunksRef.current = [];
-
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data && event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      });
-
-      recorder.addEventListener("stop", async () => {
-        try {
-          if (chunksRef.current.length > 0) {
-            const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-            chunksRef.current = [];
-            cleanupStream();
-            await transcribeBlob(blob);
-          } else {
-            cleanupStream();
-          }
-        } catch (error) {
-          console.error("Error in stop handler:", error);
-          cleanupStream();
-        }
-      });
-
-      recorder.addEventListener("error", (event) => {
-        console.error("MediaRecorder error:", event);
-        cleanupStream();
-      });
-
-      recorder.start(100); // Collect data every 100ms
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
-    } catch (error) {
-      console.error("Voice capture error", error);
-      cleanupStream();
-      alert("Could not access microphone. Please check your permissions.");
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const cleanupStream = () => {
-    try {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (e) {
-          // Ignore errors when stopping
-        }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        /* ignore */
       }
-      mediaStreamRef.current?.getTracks().forEach((track) => {
-        track.stop();
-        track.enabled = false;
-      });
-    } catch (error) {
-      // Ignore cleanup errors
-    } finally {
-      mediaStreamRef.current = null;
-      mediaRecorderRef.current = null;
-      setIsRecording(false);
     }
+    mediaStreamRef.current?.getTracks().forEach((t) => {
+      t.stop();
+      t.enabled = false;
+    });
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    setRecording(false);
   };
 
   const transcribeBlob = async (blob: Blob) => {
-    if (blob.size === 0 || isProcessing || isSubmittingRef.current) return;
-    setIsTranscribing(true);
+    if (blob.size === 0) return;
+    setTranscribing(true);
     try {
       const formData = new FormData();
-      formData.append("audio", blob, `praiser-voice-${Date.now()}.webm`);
-      const response = await fetch("/api/groq/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody?.details || "Transcription failed.");
-      }
+      formData.append("audio", blob, `praiser-${Date.now()}.webm`);
+      formData.append("language", lang);
+      const response = await fetch("/api/groq/transcribe", { method: "POST", body: formData });
+      if (!response.ok) throw new Error("transcribe failed");
       const data: { text?: string } = await response.json();
-      if (data.text && !isSubmittingRef.current) {
-        const textToSend = data.text.trim();
-        setDraft("");
-        isSubmittingRef.current = true;
+      const text = data.text?.trim();
+      if (text) {
+        sendingRef.current = true;
         try {
-          await sendUserMessage(textToSend, "voice");
+          await sendUserMessage(text, "voice");
         } finally {
-          isSubmittingRef.current = false;
+          sendingRef.current = false;
         }
       }
     } catch (error) {
-      console.error("Transcription error", error);
+      console.warn("Transcription error", error);
     } finally {
-      setIsTranscribing(false);
+      setTranscribing(false);
     }
   };
 
+  const onVoiceToggle = async () => {
+    if (isProcessing || transcribing || liveMode) return;
+
+    if (recording && mediaRecorderRef.current) {
+      try {
+        if (mediaRecorderRef.current.state !== "inactive") {
+          mediaRecorderRef.current.stop();
+        }
+      } catch {
+        cleanupStream();
+      }
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      chunksRef.current = [];
+
+      recorder.addEventListener("dataavailable", (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      });
+
+      recorder.addEventListener("stop", async () => {
+        const chunks = chunksRef.current;
+        chunksRef.current = [];
+        cleanupStream();
+        if (chunks.length > 0) {
+          const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+          await transcribeBlob(blob);
+        }
+      });
+
+      recorder.start(100);
+      mediaRecorderRef.current = recorder;
+      setRecording(true);
+    } catch (error) {
+      console.error("Voice capture error", error);
+      cleanupStream();
+    }
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const placeholder =
+    lang === "el" ? "Ρώτησε κάτι…" : "Ask anything…";
+  const hint =
+    lang === "el"
+      ? "Enter για αποστολή · Shift+Enter για νέα γραμμή"
+      : "Enter to send · Shift+Enter for new line";
+  const praiseLabel = lang === "el" ? "Επαίνους" : "Praise";
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={cn(
-        "relative shrink-0 border-t border-white/5 bg-[#1a1a1a] px-4 pt-4 pb-6",
-        className,
-      )}
-    >
-      {attachedImages.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-2 rounded-xl border border-white/10 bg-black/40 p-2">
-          {attachedImages.map((img, idx) => (
-            <div key={idx} className="relative">
-              <img
-                src={img.url}
-                alt={img.name || `Image ${idx + 1}`}
-                className="h-20 w-20 rounded-lg object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => removeImage(idx)}
-                className="absolute -right-1 -top-1 rounded-full bg-rose-500 p-0.5 text-white transition hover:bg-rose-600"
-                aria-label="Remove image"
+    <div className="composer-wrap">
+      <div className="composer">
+        {attachments.length > 0 && (
+          <div className="attach-strip">
+            {attachments.map((a, i) => (
+              <div
+                key={i}
+                className="attach-thumb"
+                style={{ backgroundImage: `url(${a.url})` }}
               >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="mx-auto flex w-full max-w-4xl items-end gap-3">
-        <div className="flex flex-1 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 focus-within:border-accent focus-within:shadow-[0_0_20px_rgba(106,91,255,0.3)] transition-all duration-300">
-          <textarea
-            ref={textareaRef}
-            id="praiser-message"
-            className="max-h-[200px] min-h-[24px] flex-1 resize-none bg-transparent text-base leading-6 text-white placeholder:text-white/40 focus:outline-none"
-            placeholder={t.askAnything}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                if (!isProcessing && !isSubmittingRef.current && (draft.trim() || attachedImages.length > 0)) {
-                  const messageToSend = draft.trim();
-                  const imagesToSend = [...attachedImages];
-                  setDraft("");
-                  setAttachedImages([]);
-                  isSubmittingRef.current = true;
-                  sendUserMessage(messageToSend || "See attached images", "text", imagesToSend).finally(() => {
-                    isSubmittingRef.current = false;
-                  });
-                }
-              }
-            }}
-          />
-          <div className="flex items-center gap-1">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              multiple
-              className="hidden"
-              onChange={handleImageSelect}
-              disabled={isProcessing}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing || isTranscribing}
-              className="rounded-lg p-2 text-white/60 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={t.addImages}
-            >
-              <ImageIcon className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={handleVoiceToggle}
-              disabled={isProcessing || isTranscribing}
-              className="rounded-lg p-2 text-white/60 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={t.voiceCapture}
-            >
-              {isTranscribing ? (
-                <Loader2 className="h-5 w-5 animate-spin text-accent" />
-              ) : isRecording ? (
-                <Mic className="h-5 w-5 text-rose-400 animate-pulse" />
-              ) : (
-                <Mic className="h-5 w-5" />
-              )}
-            </button>
+                <span className="x" onClick={() => removeAttachment(i)}>
+                  ×
+                </span>
+              </div>
+            ))}
           </div>
+        )}
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          disabled={liveMode}
+        />
+        <div className="composer-bar">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={onPickFile}
+          />
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Add image"
+            disabled={isProcessing || transcribing || liveMode}
+          >
+            <Icon name="image" size={16} />
+          </button>
+          <button
+            type="button"
+            className={"icon-btn voice-btn" + (recording ? " live" : "")}
+            onClick={onVoiceToggle}
+            aria-label="Record"
+            disabled={isProcessing || transcribing || liveMode}
+            title={
+              transcribing
+                ? lang === "el"
+                  ? "Μεταγραφή…"
+                  : "Transcribing…"
+                : recording
+                  ? lang === "el"
+                    ? "Σταμάτημα"
+                    : "Stop"
+                  : lang === "el"
+                    ? "Ηχογράφηση"
+                    : "Record"
+            }
+          >
+            <Icon name="mic" size={16} />
+          </button>
+          <button
+            type="button"
+            className={"icon-btn voice-btn" + (liveMode ? " live" : "")}
+            onClick={() => setLiveMode(!liveMode)}
+            aria-label="Live voice"
+            disabled={isProcessing || transcribing || recording}
+            title={
+              liveMode
+                ? lang === "el"
+                  ? "Live μόντο: ΕΝΕΡΓΟ"
+                  : "Live mode: ON"
+                : lang === "el"
+                  ? "Live μόντο: ξεκινάει συνομιλία χωρίς χέρια"
+                  : "Live mode: hands-free conversation"
+            }
+          >
+            <Icon name="radio" size={16} />
+          </button>
+          <div className="spacer" />
+          <button
+            type="button"
+            className="send-btn"
+            disabled={(!draft.trim() && attachments.length === 0) || isProcessing}
+            onClick={() => void send()}
+            aria-label="Send"
+          >
+            <Icon name="send" size={15} />
+          </button>
         </div>
-        <button
-          type="submit"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white transition-all duration-300 hover:bg-accent/90 hover:scale-105 hover:shadow-[0_0_30px_rgba(106,91,255,0.6)] glow-on-hover disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={isProcessing || isTranscribing}
-          aria-label={t.sendToMike}
-        >
-          {isProcessing ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Send className="h-5 w-5" />
-          )}
-        </button>
       </div>
-    </form>
+      <div className="composer-hint">
+        <span>{hint}</span>
+        <span className="praise-mini">
+          <span className="label-l">{praiseLabel}</span>
+          <span className="mono" style={{ color: "var(--clay)", fontWeight: 500 }}>
+            {Math.round(praiseVolume)}%
+          </span>
+        </span>
+      </div>
+    </div>
   );
 };

@@ -17,6 +17,16 @@ export const usePraiseMode = () => {
   const crescendoCycleCompleteRef = useRef(false);
   const lastQuestionCountRef = useRef(0);
   const lastChatIdRef = useRef<string | null>(null);
+  const orgasmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (orgasmTimeoutRef.current) {
+        clearTimeout(orgasmTimeoutRef.current);
+        orgasmTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Reset when chat changes (new chat or loaded chat)
@@ -115,8 +125,12 @@ export const usePraiseMode = () => {
             "Amazing! Let me catch my breath... 😌",
           ];
           const randomMessage = orgasmMessages[Math.floor(Math.random() * orgasmMessages.length)];
-          
-          setTimeout(() => {
+
+          if (orgasmTimeoutRef.current) {
+            clearTimeout(orgasmTimeoutRef.current);
+          }
+          orgasmTimeoutRef.current = setTimeout(() => {
+            orgasmTimeoutRef.current = null;
             useAppStore.getState().addMessage({
               role: "assistant",
               content: randomMessage,

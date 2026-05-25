@@ -1,71 +1,65 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { ChatPanel } from "@/components/chat/chat-panel";
+import { SettingsDrawer } from "@/components/settings/settings-drawer";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { AdminPanel } from "@/components/admin/admin-panel";
-import { useAppStore, loadStoredSettings } from "@/state/app-store";
-import { usePersonInfoLoader } from "@/hooks/use-person-info-loader";
+import { SubjectPanel } from "@/components/subject/subject-panel";
+import { Icon } from "@/components/ui/icon";
+import { Lightbox } from "@/components/ui/lightbox";
+import { useLiveVoiceMode } from "@/hooks/use-live-voice-mode";
 import { usePraiseMode } from "@/hooks/use-praise-mode";
-import { Menu, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { loadStoredSettings, useAppStore } from "@/state/app-store";
 
 export default function Home() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  
-  // Load stored settings from API (with localStorage fallback) on client mount
+  const showSubjectPanel = useAppStore((s) => s.showSubjectPanel);
+  const uiLanguage = useAppStore((s) => s.uiLanguage);
+
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Mount-time effects
   useEffect(() => {
-    loadStoredSettings().catch((error) => {
-      console.error("Error loading settings:", error);
-    });
+    void loadStoredSettings();
   }, []);
-  
-  // Load person info on app startup
-  usePersonInfoLoader();
-  // Handle praise mode logic
+
+  useEffect(() => {
+    document.documentElement.setAttribute("lang", uiLanguage);
+  }, [uiLanguage]);
+
   usePraiseMode();
+  // Mount live voice orchestrator so liveMode store flag has effect.
+  useLiveVoiceMode();
 
   return (
-    <main className="flex h-screen w-full overflow-hidden bg-background touch-manipulation">
-      {/* Mobile menu button */}
+    <>
       <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed left-4 top-4 z-50 rounded-lg bg-black/40 p-3 text-white/80 backdrop-blur-sm lg:hidden touch-manipulation"
+        type="button"
+        className="mobile-menu-btn"
+        onClick={() => setMobileOpen((o) => !o)}
         aria-label="Toggle sidebar"
       >
-        {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        <Icon name={mobileOpen ? "x" : "menu"} size={18} />
       </button>
 
-      {/* Mobile backdrop */}
-      {sidebarOpen && (
+      <div className={"app " + (showSubjectPanel ? "" : "no-subject")}>
         <div
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+          className={"sidebar-col " + (mobileOpen ? "mobile-open" : "")}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMobileOpen(false);
+          }}
+        >
+          <Sidebar />
+        </div>
 
-      {/* Sidebar with mobile overlay */}
-      <div
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 transition-transform duration-300 lg:relative lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}
-      >
-        <Sidebar 
-          onClose={() => setSidebarOpen(false)} 
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
+        <ChatPanel onImageClick={setLightboxSrc} />
+
+        {showSubjectPanel && <SubjectPanel onImageClick={setLightboxSrc} />}
       </div>
 
-      <div className="flex flex-1 flex-col min-w-0">
-        <ChatPanel />
-      </div>
-      <AdminPanel 
-        isOpen={settingsOpen} 
-        onClose={() => setSettingsOpen(false)} 
-      />
-    </main>
+      <SettingsDrawer />
+      <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+    </>
   );
 }
-
