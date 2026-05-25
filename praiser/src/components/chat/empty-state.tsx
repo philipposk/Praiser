@@ -1,5 +1,6 @@
 "use client";
 
+import { PERSONA_PRESETS, presetToPersonInfo } from "@/lib/persona-presets";
 import { useAppStore } from "@/state/app-store";
 
 type Starter = { label: string; text: string };
@@ -25,8 +26,11 @@ type EmptyStateProps = {
 export const EmptyState = ({ onPick }: EmptyStateProps) => {
   const lang = useAppStore((s) => s.uiLanguage);
   const personInfo = useAppStore((s) => s.personInfo);
+  const setPersonInfo = useAppStore((s) => s.setPersonInfo);
+  const persons = useAppStore((s) => s.persons);
 
   const personName = personInfo?.name?.trim() || (lang === "el" ? "κάποιον" : "someone");
+  const showPresets = !personInfo && persons.length === 0;
   const greet =
     lang === "el" ? (
       <>
@@ -47,10 +51,36 @@ export const EmptyState = ({ onPick }: EmptyStateProps) => {
     text: s.text.replaceAll("[PERSON]", personName),
   }));
 
+  const presetsLabel =
+    lang === "el"
+      ? "Δοκίμασε ένα έτοιμο πρόσωπο"
+      : "Try a preset persona";
+
   return (
     <div className="empty">
       <h1 className="empty-greet">{greet}</h1>
       <p className="empty-sub">{sub}</p>
+
+      {showPresets && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 640 }}>
+          <span className="label">{presetsLabel}</span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {PERSONA_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                className="alias-chip"
+                onClick={() => setPersonInfo(presetToPersonInfo(p))}
+                style={{ cursor: "pointer", fontSize: 13, padding: "6px 12px" }}
+                title={p.tagline}
+              >
+                <span style={{ marginRight: 6 }}>{p.emoji}</span>
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="starters">
         {starters.map((s, i) => (
           <button key={i} className="starter" onClick={() => onPick(s.text)}>
