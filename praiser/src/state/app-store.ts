@@ -269,33 +269,30 @@ const flushSettingsSave = (getState: () => AppStore) => {
   void saveSettingsToAPI(extractPersistedSettings(getState()));
 };
 
-// Build an initial state that mirrors the on-disk cache so first paint matches
-// the persisted state. The API load (loadStoredSettings) reconciles after mount.
-const buildInitialState = () => {
-  const cached = loadSettingsFromCache();
-  const cachedChats = loadChatsFromCache();
-  return {
-    messages: [] as Message[],
-    personInfo: cached?.personInfo ?? DEFAULTS.personInfo,
-    praiseVolume: 0,
-    praiseBarVisible: cached?.praiseBarVisible ?? DEFAULTS.praiseBarVisible,
-    praiseMode: cached?.praiseMode ?? DEFAULTS.praiseMode,
-    manualPraiseVolume: cached?.manualPraiseVolume ?? DEFAULTS.manualPraiseVolume,
-    isProcessing: false,
-    uiLanguage: "en" as Language,
-    siteName: cached?.siteName ?? DEFAULTS.siteName,
-    siteSubtitle: cached?.siteSubtitle ?? DEFAULTS.siteSubtitle,
-    chatName: "",
-    currentChatId: null,
-    chats: cached?.chats?.length ? cached.chats : cachedChats,
-    autoSpeak: cached?.autoSpeak ?? DEFAULTS.autoSpeak,
-    ttsVoiceUri: cached?.ttsVoiceUri ?? DEFAULTS.ttsVoiceUri,
-    darkMode: cached?.darkMode ?? DEFAULTS.darkMode,
-    showSubjectPanel: cached?.showSubjectPanel ?? DEFAULTS.showSubjectPanel,
-    liveMode: false, // never persisted — ephemeral session flag
-    settingsOpen: false,
-  };
-};
+// SSR-safe initial state: always DEFAULTS, regardless of environment. Cache
+// + API hydration happens in loadStoredSettings() on mount. This avoids
+// hydration mismatch between server (no localStorage) and client (cached).
+const buildInitialState = () => ({
+  messages: [] as Message[],
+  personInfo: DEFAULTS.personInfo,
+  praiseVolume: 0,
+  praiseBarVisible: DEFAULTS.praiseBarVisible,
+  praiseMode: DEFAULTS.praiseMode,
+  manualPraiseVolume: DEFAULTS.manualPraiseVolume,
+  isProcessing: false,
+  uiLanguage: "en" as Language,
+  siteName: DEFAULTS.siteName,
+  siteSubtitle: DEFAULTS.siteSubtitle,
+  chatName: "",
+  currentChatId: null,
+  chats: [] as Chat[],
+  autoSpeak: DEFAULTS.autoSpeak,
+  ttsVoiceUri: DEFAULTS.ttsVoiceUri,
+  darkMode: DEFAULTS.darkMode,
+  showSubjectPanel: DEFAULTS.showSubjectPanel,
+  liveMode: false,
+  settingsOpen: false,
+});
 
 const buildChatFromState = (state: AppStore): Chat => {
   const chatName =
@@ -526,6 +523,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
 export const loadStoredSettings = async () => {
   if (!isBrowser()) return;
 
+  // First pass: apply localStorage cache immediately for instant paint.
+  const cached = loadSettingsFromCache();
+  const cachedChats = loadChatsFromCache();
+  if (cached || cachedChats.length > 0) {
+    useAppStore.setState({
+      personInfo: cached?.personInfo ?? DEFAULTS.personInfo,
+      praiseBarVisible: cached?.praiseBarVisible ?? DEFAULTS.praiseBarVisible,
+      praiseMode: cached?.praiseMode ?? DEFAULTS.praiseMode,
+      manualPraiseVolume: cached?.manualPraiseVolume ?? DEFAULTS.manualPraiseVolume,
+      siteName: cached?.siteName ?? DEFAULTS.siteName,
+      siteSubtitle: cached?.siteSubtitle ?? DEFAULTS.siteSubtitle,
+      chats: cached?.chats?.length ? cached.chats : cachedChats,
+      autoSpeak: cached?.autoSpeak ?? DEFAULTS.autoSpeak,
+      ttsVoiceUri: cached?.ttsVoiceUri ?? DEFAULTS.ttsVoiceUri,
+      darkMode: cached?.darkMode ?? DEFAULTS.darkMode,
+      showSubjectPanel: cached?.showSubjectPanel ?? DEFAULTS.showSubjectPanel,
+    });
+    if (cached?.darkMode && typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+  }
+
+  // Second pass: reconcile with API (source of truth).
   const settings = await loadSettingsFromAPI();
   saveSettingsToCache(settings);
   saveChatsToCache(settings.chats);
