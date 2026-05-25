@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { type Message, type PersonInfo, type Chat } from "@/lib/types";
+import { type Message, type PersonInfo, type Chat, type ChatMode } from "@/lib/types";
 import { nowIso } from "@/lib/utils";
 
 type Language = "en" | "el";
@@ -8,7 +8,10 @@ export type PraiseMode = "auto-random" | "crescendo" | "manual";
 
 type PersistedSettings = {
   version: number;
-  personInfo: PersonInfo | null;
+  /** Legacy field — first load migrates it into `persons`. */
+  personInfo?: PersonInfo | null;
+  persons: PersonInfo[];
+  currentPersonId: string | null;
   praiseBarVisible: boolean;
   praiseMode: PraiseMode;
   manualPraiseVolume: number;
@@ -23,6 +26,9 @@ type PersistedSettings = {
 
 type AppStore = {
   messages: Message[];
+  persons: PersonInfo[];
+  currentPersonId: string | null;
+  /** Derived: the active person (null if none). */
   personInfo: PersonInfo | null;
   praiseVolume: number;
   praiseBarVisible: boolean;
@@ -45,6 +51,11 @@ type AppStore = {
   appendMessages: (messages: Omit<Message, "id" | "createdAt">[]) => void;
   appendToMessageContent: (id: string, delta: string) => void;
   setPersonInfo: (info: PersonInfo | null) => void;
+  addPerson: (person: Omit<PersonInfo, "id">) => string;
+  updatePerson: (id: string, patch: Partial<PersonInfo>) => void;
+  removePerson: (id: string) => void;
+  setCurrentPerson: (id: string | null) => void;
+  setPersonMode: (id: string, mode: ChatMode) => void;
   setPraiseVolume: (value: number) => void;
   setPraiseBarVisible: (visible: boolean) => void;
   setPraiseMode: (mode: PraiseMode) => void;
@@ -77,7 +88,8 @@ const SETTINGS_SAVE_TIMEOUT_MS = 15000;
 
 const DEFAULTS = {
   version: SETTINGS_VERSION,
-  personInfo: null as PersonInfo | null,
+  persons: [] as PersonInfo[],
+  currentPersonId: null as string | null,
   praiseBarVisible: false,
   praiseMode: "crescendo" as PraiseMode,
   manualPraiseVolume: 70,
@@ -89,6 +101,49 @@ const DEFAULTS = {
   darkMode: false,
   showSubjectPanel: true,
 };
+
+/**
+ * Convert a legacy single-person config + optional persons[] into a normalised
+ * persons[] + currentPersonId pair. Adds id + mode defaults to anything missing
+ * them. Safe to call repeatedly.
+ */
+const migratePersons = (raw: {
+  personInfo?: PersonInfo | null;
+  persons?: PersonInfo[];
+  currentPersonId?: string | null;
+}): { persons: PersonInfo[]; currentPersonId: string | null } => {
+  const stamped: PersonInfo[] = [];
+  for (const p of raw.persons ?? []) {
+    if (!p) continue;
+    stamped.push({
+      ...p,
+      id: p.id ?? crypto.randomUUID(),
+      mode: p.mode ?? "praise",
+    });
+  }
+  if (raw.personInfo) {
+    const legacyId = raw.personInfo.id ?? crypto.randomUUID();
+    const exists = stamped.some((p) => p.id === legacyId);
+    if (!exists) {
+      stamped.unshift({
+        ...raw.personInfo,
+        id: legacyId,
+        mode: raw.personInfo.mode ?? "praise",
+      });
+    }
+  }
+  const explicit = raw.currentPersonId
+    ? stamped.find((p) => p.id === raw.currentPersonId)?.id
+    : null;
+  const currentPersonId = explicit ?? stamped[0]?.id ?? null;
+  return { persons: stamped, currentPersonId };
+};
+
+const findCurrentPerson = (
+  persons: PersonInfo[],
+  currentPersonId: string | null,
+): PersonInfo | null =>
+  currentPersonId ? (persons.find((p) => p.id === currentPersonId) ?? null) : null;
 
 const withIds = (message: Omit<Message, "id" | "createdAt">): Message => ({
   ...message,
@@ -158,7 +213,8 @@ const saveSettingsToCache = (settings: PersistedSettings) => {
 
 const extractPersistedSettings = (state: AppStore): PersistedSettings => ({
   version: SETTINGS_VERSION,
-  personInfo: state.personInfo,
+  persons: state.persons,
+  currentPersonId: state.currentPersonId,
   praiseBarVisible: state.praiseBarVisible,
   praiseMode: state.praiseMode,
   manualPraiseVolume: state.manualPraiseVolume,
@@ -227,9 +283,18 @@ const loadSettingsFromAPI = async (): Promise<PersistedSettings> => {
       return { ...DEFAULTS };
     }
 
+    const migrated = migratePersons({
+      personInfo: raw.personInfo,
+      persons: raw.persons,
+      currentPersonId: raw.currentPersonId,
+    });
+
     return {
       ...DEFAULTS,
       ...raw,
+      persons: migrated.persons,
+      currentPersonId: migrated.currentPersonId,
+      personInfo: undefined,
       version: SETTINGS_VERSION,
     };
   } catch {
@@ -275,7 +340,9 @@ const flushSettingsSave = (getState: () => AppStore) => {
 // hydration mismatch between server (no localStorage) and client (cached).
 const buildInitialState = () => ({
   messages: [] as Message[],
-  personInfo: DEFAULTS.personInfo,
+  persons: [] as PersonInfo[],
+  currentPersonId: null as string | null,
+  personInfo: null as PersonInfo | null,
   praiseVolume: 0,
   praiseBarVisible: DEFAULTS.praiseBarVisible,
   praiseMode: DEFAULTS.praiseMode,
@@ -350,8 +417,83 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }),
 
   setPersonInfo: (info) => {
-    set({ personInfo: info });
+    // Compat shim over the persons[] model.
+    const state = get();
+    if (info === null) {
+      const current = state.currentPersonId;
+      if (!current) return;
+      const persons = state.persons.filter((p) => p.id !== current);
+      set({
+        persons,
+        currentPersonId: persons[0]?.id ?? null,
+        personInfo: persons[0] ?? null,
+      });
+      debounceSettingsSave(get);
+      return;
+    }
+    const targetId = info.id ?? state.currentPersonId ?? crypto.randomUUID();
+    const normalised: PersonInfo = {
+      ...info,
+      id: targetId,
+      mode: info.mode ?? "praise",
+    };
+    const exists = state.persons.some((p) => p.id === targetId);
+    const persons = exists
+      ? state.persons.map((p) => (p.id === targetId ? normalised : p))
+      : [normalised, ...state.persons];
+    set({
+      persons,
+      currentPersonId: targetId,
+      personInfo: normalised,
+    });
     debounceSettingsSave(get);
+  },
+
+  addPerson: (person) => {
+    const id = crypto.randomUUID();
+    const next: PersonInfo = { ...person, id, mode: person.mode ?? "praise" };
+    set((state) => ({
+      persons: [next, ...state.persons],
+      currentPersonId: id,
+      personInfo: next,
+    }));
+    debounceSettingsSave(get);
+    return id;
+  },
+
+  updatePerson: (id, patch) => {
+    set((state) => {
+      const persons = state.persons.map((p) => (p.id === id ? { ...p, ...patch, id } : p));
+      const personInfo =
+        state.currentPersonId === id
+          ? (persons.find((p) => p.id === id) ?? null)
+          : state.personInfo;
+      return { persons, personInfo };
+    });
+    debounceSettingsSave(get);
+  },
+
+  removePerson: (id) => {
+    set((state) => {
+      const persons = state.persons.filter((p) => p.id !== id);
+      const currentPersonId =
+        state.currentPersonId === id ? (persons[0]?.id ?? null) : state.currentPersonId;
+      const personInfo = findCurrentPerson(persons, currentPersonId);
+      return { persons, currentPersonId, personInfo };
+    });
+    debounceSettingsSave(get);
+  },
+
+  setCurrentPerson: (id) => {
+    set((state) => {
+      const personInfo = findCurrentPerson(state.persons, id);
+      return { currentPersonId: id, personInfo };
+    });
+    debounceSettingsSave(get);
+  },
+
+  setPersonMode: (id, mode) => {
+    get().updatePerson(id, { mode });
   },
 
   setPraiseVolume: (value) =>
@@ -509,7 +651,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   reset: () =>
     set({
       messages: [],
-      personInfo: DEFAULTS.personInfo,
+      persons: [],
+      currentPersonId: null,
+      personInfo: null,
       praiseVolume: 0,
       praiseBarVisible: DEFAULTS.praiseBarVisible,
       praiseMode: DEFAULTS.praiseMode,
@@ -537,8 +681,15 @@ export const loadStoredSettings = async () => {
   const cached = loadSettingsFromCache();
   const cachedChats = loadChatsFromCache();
   if (cached || cachedChats.length > 0) {
+    const cachedMigrated = migratePersons({
+      personInfo: cached?.personInfo,
+      persons: cached?.persons,
+      currentPersonId: cached?.currentPersonId,
+    });
     useAppStore.setState({
-      personInfo: cached?.personInfo ?? DEFAULTS.personInfo,
+      persons: cachedMigrated.persons,
+      currentPersonId: cachedMigrated.currentPersonId,
+      personInfo: findCurrentPerson(cachedMigrated.persons, cachedMigrated.currentPersonId),
       praiseBarVisible: cached?.praiseBarVisible ?? DEFAULTS.praiseBarVisible,
       praiseMode: cached?.praiseMode ?? DEFAULTS.praiseMode,
       manualPraiseVolume: cached?.manualPraiseVolume ?? DEFAULTS.manualPraiseVolume,
@@ -561,7 +712,9 @@ export const loadStoredSettings = async () => {
   saveChatsToCache(settings.chats);
 
   useAppStore.setState({
-    personInfo: settings.personInfo,
+    persons: settings.persons,
+    currentPersonId: settings.currentPersonId,
+    personInfo: findCurrentPerson(settings.persons, settings.currentPersonId),
     praiseBarVisible: settings.praiseBarVisible,
     praiseMode: settings.praiseMode,
     manualPraiseVolume: settings.manualPraiseVolume,

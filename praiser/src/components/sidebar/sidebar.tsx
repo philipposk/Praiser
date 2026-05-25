@@ -39,12 +39,15 @@ export const Sidebar = () => {
   const loadChat = useAppStore((s) => s.loadChat);
   const deleteChat = useAppStore((s) => s.deleteChat);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
+  const persons = useAppStore((s) => s.persons);
+  const currentPersonId = useAppStore((s) => s.currentPersonId);
+  const setCurrentPerson = useAppStore((s) => s.setCurrentPerson);
 
   const [query, setQuery] = useState("");
 
   const T = lang === "el"
-    ? { newChat: "Νέα συνομιλία", search: "Αναζήτηση συνομιλιών", history: "Ιστορικό", settings: "Ρυθμίσεις", account: "Λογαριασμός", empty: "Καμία συνομιλία ακόμα" }
-    : { newChat: "New chat", search: "Search chats", history: "History", settings: "Settings", account: "Account", empty: "No chats yet" };
+    ? { newChat: "Νέα συνομιλία", search: "Αναζήτηση συνομιλιών", history: "Ιστορικό", settings: "Ρυθμίσεις", account: "Λογαριασμός", empty: "Καμία συνομιλία ακόμα", persons: "Πρόσωπα", addPerson: "Νέο πρόσωπο" }
+    : { newChat: "New chat", search: "Search chats", history: "History", settings: "Settings", account: "Account", empty: "No chats yet", persons: "People", addPerson: "Add person" };
 
   const filtered = useMemo(() => {
     if (!query.trim()) return chats;
@@ -71,6 +74,38 @@ export const Sidebar = () => {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
+
+      {persons.length > 0 && (
+        <div className="side-section">
+          <div className="side-section-header">
+            <span className="label">{T.persons}</span>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setSettingsOpen(true)}
+              aria-label={T.addPerson}
+              title={T.addPerson}
+              style={{ width: 22, height: 22 }}
+            >
+              <Icon name="plus" size={12} />
+            </button>
+          </div>
+          {persons.map((p) => (
+            <div
+              key={p.id}
+              className={"chat-item " + (p.id === currentPersonId ? "active" : "")}
+              onClick={() => p.id && setCurrentPerson(p.id)}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="chat-item-title">{p.name || "—"}</div>
+                <div className="chat-item-meta">
+                  {(p.mode ?? "praise").toUpperCase()}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div
         className="side-section"

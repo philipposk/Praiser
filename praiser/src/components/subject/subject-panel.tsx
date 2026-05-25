@@ -3,7 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Icon } from "@/components/ui/icon";
+import { ALL_CHAT_MODES, type ChatMode } from "@/lib/types";
 import { useAppStore } from "@/state/app-store";
+
+const MODE_LABELS: Record<ChatMode, { el: string; en: string }> = {
+  praise: { el: "Έπαινος", en: "Praise" },
+  roast: { el: "Πείραγμα", en: "Roast" },
+  hype: { el: "Hype", en: "Hype" },
+  birthday: { el: "Γενέθλια", en: "Birthday" },
+  anniversary: { el: "Επέτειος", en: "Anniversary" },
+  affirmation: { el: "Επιβεβαίωση", en: "Affirmation" },
+  tribute: { el: "Αφιέρωμα", en: "Tribute" },
+};
 
 type Props = {
   onImageClick: (url: string) => void;
@@ -59,6 +70,7 @@ export const SubjectPanel = ({ onImageClick }: Props) => {
   const setManualPraiseVolume = useAppStore((s) => s.setManualPraiseVolume);
   const setPraiseVolume = useAppStore((s) => s.setPraiseVolume);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
+  const setPersonMode = useAppStore((s) => s.setPersonMode);
 
   const photos = useMemo(() => personInfo?.images?.map((i) => i.url) ?? [], [personInfo]);
   const aliases = useMemo(() => parseAliases(personInfo?.extraInfo ?? ""), [personInfo]);
@@ -193,6 +205,28 @@ export const SubjectPanel = ({ onImageClick }: Props) => {
       <div>
         <h2 className="subj-name">{personInfo.name}</h2>
         {tagline && <p className="subj-tagline">{tagline}</p>}
+        {personInfo.id && (
+          <div className="alias-chips" style={{ marginTop: 10 }}>
+            {ALL_CHAT_MODES.map((m) => {
+              const active = (personInfo.mode ?? "praise") === m;
+              return (
+                <button
+                  key={m}
+                  className="alias-chip"
+                  onClick={() => personInfo.id && setPersonMode(personInfo.id, m)}
+                  style={{
+                    cursor: "pointer",
+                    background: active ? "var(--clay)" : "var(--surface)",
+                    color: active ? "#FAF5E9" : "var(--ink-2)",
+                    borderColor: active ? "var(--clay)" : "var(--line-soft)",
+                  }}
+                >
+                  {MODE_LABELS[m][lang]}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Praise dial */}

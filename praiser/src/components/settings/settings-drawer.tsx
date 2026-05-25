@@ -21,6 +21,10 @@ export const SettingsDrawer = () => {
 
   const storePerson = useAppStore((s) => s.personInfo);
   const setPersonInfo = useAppStore((s) => s.setPersonInfo);
+  const persons = useAppStore((s) => s.persons);
+  const addPerson = useAppStore((s) => s.addPerson);
+  const removePerson = useAppStore((s) => s.removePerson);
+  const setCurrentPerson = useAppStore((s) => s.setCurrentPerson);
 
   const darkMode = useAppStore((s) => s.darkMode);
   const setDarkMode = useAppStore((s) => s.setDarkMode);
@@ -60,6 +64,9 @@ export const SettingsDrawer = () => {
           voiceSub: "Διαβάζει τις απαντήσεις φωναχτά",
           save: "Αποθήκευση",
           cancel: "Ακύρωση",
+          newPerson: "Νέο πρόσωπο",
+          deletePerson: "Διαγραφή",
+          switchTo: "Επιλογή",
         }
       : {
           title: "Settings",
@@ -77,6 +84,9 @@ export const SettingsDrawer = () => {
           voiceSub: "Read responses aloud",
           save: "Save",
           cancel: "Cancel",
+          newPerson: "New person",
+          deletePerson: "Delete",
+          switchTo: "Switch",
         };
 
   const close = () => setOpen(false);
@@ -151,6 +161,78 @@ export const SettingsDrawer = () => {
         </div>
 
         <div className="drawer-section-title">{T.subject}</div>
+
+        {persons.length > 0 && (
+          <div className="field">
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {persons.map((p) => {
+                const active = p.id === draft.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={"chat-item " + (active ? "active" : "")}
+                    onClick={() => {
+                      if (p.id && !active) {
+                        setCurrentPerson(p.id);
+                      }
+                    }}
+                    style={{ borderRadius: 8 }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="chat-item-title">{p.name || "—"}</div>
+                      <div className="chat-item-meta">
+                        {(p.mode ?? "praise").toUpperCase()} · {p.images.length}{" "}
+                        {lang === "el" ? "φωτο" : "photos"}
+                      </div>
+                    </div>
+                    {persons.length > 1 && (
+                      <button
+                        className="chat-item-delete"
+                        aria-label={T.deletePerson}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (p.id && confirm(`${T.deletePerson} ${p.name}?`)) {
+                            removePerson(p.id);
+                          }
+                        }}
+                        style={{ opacity: 1 }}
+                      >
+                        <Icon name="trash" size={12} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <button
+                className="side-link"
+                style={{ width: "auto", color: "var(--clay)", marginTop: 4 }}
+                onClick={() => {
+                  const id = addPerson({
+                    name: "",
+                    images: [],
+                    videos: [],
+                    urls: [],
+                    extraInfo: "",
+                    mode: "praise",
+                  });
+                  setDraft({
+                    id,
+                    name: "",
+                    images: [],
+                    videos: [],
+                    urls: [],
+                    extraInfo: "",
+                    mode: "praise",
+                  });
+                  setTagline("");
+                }}
+              >
+                <Icon name="plus" size={12} /> {T.newPerson}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="field">
           <label>{T.name}</label>
           <input

@@ -10,6 +10,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.53.1",
     "@vercel/blob": "^2.0.0",
     "clsx": "^2.1.1",
     "fast-average-color": "^9.5.0",

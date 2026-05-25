@@ -15,8 +15,31 @@ export type Message = {
   images?: MessageImage[];
 };
 
+export type ChatMode =
+  | "praise"
+  | "roast"
+  | "hype"
+  | "birthday"
+  | "anniversary"
+  | "affirmation"
+  | "tribute";
+
+export const ALL_CHAT_MODES: ChatMode[] = [
+  "praise",
+  "roast",
+  "hype",
+  "birthday",
+  "anniversary",
+  "affirmation",
+  "tribute",
+];
+
 export type PersonInfo = {
+  /** Stable id; generated on creation. */
+  id?: string;
   name: string;
+  /** Conversational tone for this person. Defaults to "praise". */
+  mode?: ChatMode;
   images: MessageImage[];
   videos: Array<{
     url: string;

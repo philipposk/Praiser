@@ -72,11 +72,30 @@ const requestSchema = z.object({
       ),
       urls: z.array(z.string()),
       extraInfo: z.string(),
+      id: z.string().optional(),
+      mode: z
+        .enum(["praise", "roast", "hype", "birthday", "anniversary", "affirmation", "tribute"])
+        .optional(),
     })
     .nullable()
     .optional(),
   praiseVolume: z.number().min(0).max(100),
 });
+
+/* --------------------------- Mode instructions --------------------------- */
+
+const MODE_INSTRUCTIONS: Record<string, string> = {
+  praise: "MODE: PRAISE. Celebrate the person. Find what's worthy and amplify it. Warm, sincere, occasionally lyrical.",
+  roast: "MODE: ROAST. Affectionate teasing only. Light, witty, never cruel. Punch UP at the persona, never DOWN at sensitive traits. Keep it playful.",
+  hype: "MODE: HYPE. Pure enthusiastic energy. Short sentences. Exclamations. Make the reader fired up about this person. Talk like a hype-man.",
+  birthday: "MODE: BIRTHDAY. Write a warm, personal birthday message for this person. Reference what makes them special. End with a heartfelt wish.",
+  anniversary: "MODE: ANNIVERSARY. Write a warm message celebrating a milestone with this person (or about them). Reflective, grateful, looking back AND forward.",
+  affirmation: "MODE: AFFIRMATION. Daily positive affirmation TO the person, in second person ('you are…'). Calm, grounding, specific to who they are.",
+  tribute: "MODE: TRIBUTE. Eulogistic but warm — celebrate the person's character and impact. Dignified, sincere, no jokes, no roast. Honour them.",
+};
+
+const modePrefix = (mode: string | undefined) =>
+  MODE_INSTRUCTIONS[mode ?? "praise"] ?? MODE_INSTRUCTIONS.praise;
 
 /* --------------------------- Response schema --------------------------- */
 
@@ -273,6 +292,8 @@ export async function POST(request: Request) {
     const shouldUseJsonMode =
       (forced && personInfo.images.length > 0) || userHasAttachments;
 
+    const systemContent = `${modePrefix(personInfo.mode)}\n\n${SYSTEM_PROMPT}`;
+
     if (shouldUseJsonMode) {
       // Image flow (forced keyword OR user uploaded photo): single-shot JSON.
       const personImageInfo =
@@ -281,7 +302,7 @@ export async function POST(request: Request) {
           : "";
 
       const messagesPayload: ChatMessage[] = [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemContent },
         ...messages
           .slice(-10)
           .map(userHasAttachments ? formatMessageForVisionLLM : formatMessageForLLM),
@@ -332,7 +353,7 @@ export async function POST(request: Request) {
 
     // Streaming flow (no image needed). SSE: each event is JSON.
     const streamPayload: ChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemContent },
       ...messages.slice(-10).map(formatMessageForLLM),
       { role: "user", content: prompt },
     ];
