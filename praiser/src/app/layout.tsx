@@ -24,20 +24,44 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://praiser.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Praiser",
+  title: "Praiser — AI that celebrates anyone you love",
   description:
-    "Praiser is an AI that celebrates and praises the person you choose.",
+    "Free AI that praises, hypes, and celebrates anyone — friend, family, partner, hero. Multi-language (EN + EL). Voice + live conversation. No signup.",
   applicationName: "Praiser",
+  metadataBase: new URL(SITE_URL),
   appleWebApp: {
     capable: true,
     title: "Praiser",
     statusBarStyle: "black-translucent",
   },
-  formatDetection: {
-    telephone: false,
-  },
+  formatDetection: { telephone: false },
   manifest: "/manifest.json",
+  openGraph: {
+    title: "Praiser — AI that celebrates anyone you love",
+    description:
+      "Free AI that praises, hypes, and celebrates anyone. Voice + live conversation. EN + EL.",
+    type: "website",
+    url: SITE_URL,
+    siteName: "Praiser",
+    images: [
+      {
+        url: "/api/og",
+        width: 1200,
+        height: 630,
+        alt: "Praiser",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Praiser — AI that celebrates anyone you love",
+    description:
+      "Free AI that praises, hypes, and celebrates anyone. EN + EL.",
+    images: ["/api/og"],
+  },
 };
 
 export const viewport = {

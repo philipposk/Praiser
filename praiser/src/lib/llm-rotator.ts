@@ -9,9 +9,14 @@
  * Generic over OpenAI-compatible providers (Groq, OpenRouter, NVIDIA NIM).
  */
 
+// OpenAI-compat multimodal content part.
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ContentPart[];
 };
 
 export type ChatOptions = {
@@ -139,7 +144,7 @@ export abstract class Rotator {
     return [...models.slice(idx), ...models.slice(0, idx)];
   }
 
-  private async chatOne(model: string, opts: ChatOptions): Promise<ChatResult> {
+  private buildPayload(model: string, opts: ChatOptions, stream = false): Record<string, unknown> {
     const payload: Record<string, unknown> = {
       model,
       messages: opts.messages,
@@ -147,6 +152,12 @@ export abstract class Rotator {
     };
     if (opts.maxTokens) payload.max_tokens = opts.maxTokens;
     if (opts.responseFormatJson) payload.response_format = { type: "json_object" };
+    if (stream) payload.stream = true;
+    return payload;
+  }
+
+  private async chatOne(model: string, opts: ChatOptions): Promise<ChatResult> {
+    const payload = this.buildPayload(model, opts, false);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -240,6 +251,133 @@ export abstract class Rotator {
     }
 
     throw new AllModelsFailedError(this.provider, attempts);
+  }
+
+  /**
+   * Streaming chat completion. Yields text deltas as they arrive. Once
+   * generation is complete the generator returns { model, provider } metadata.
+   * Provider rotation behaves like chat(): non-retryable errors bail, others
+   * walk to next model.
+   */
+  async *chatStream(opts: ChatOptions): AsyncGenerator<string, { model: string; provider: string }, void> {
+    const models = await this.listModels();
+    if (models.length === 0) {
+      throw new AllModelsFailedError(this.provider, []);
+    }
+
+    const ordered = this.ordered(models);
+    const attempts: ProviderError[] = [];
+
+    for (const m of ordered) {
+      try {
+        const meta = yield* this.streamOne(m.id, opts);
+        lastUsedCursor.set(this.provider, m.id);
+        return meta;
+      } catch (error) {
+        const err = error as { status?: number; code?: string; message?: string; name?: string };
+        const status = err.status ?? 0;
+        const message = err.message ?? "unknown";
+        attempts.push({ status, code: err.code, message, model: m.id });
+
+        const retryable =
+          err.name === "AbortError" ||
+          isRetryableStatus(status) ||
+          isRetryableCode(err.code, message);
+
+        if (!retryable) throw error;
+      }
+    }
+
+    throw new AllModelsFailedError(this.provider, attempts);
+  }
+
+  private async *streamOne(
+    model: string,
+    opts: ChatOptions,
+  ): AsyncGenerator<string, { model: string; provider: string }, void> {
+    const payload = this.buildPayload(model, opts, true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+    const externalAbort = opts.signal;
+    const externalListener = externalAbort ? () => controller.abort() : null;
+    if (externalAbort && externalListener) {
+      if (externalAbort.aborted) controller.abort();
+      else externalAbort.addEventListener("abort", externalListener);
+    }
+
+    try {
+      const response = await fetch(this.chatUrl, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        let body: unknown = null;
+        try {
+          body = await response.json();
+        } catch {
+          /* ignore */
+        }
+        const classified = classifyError(response.status, body);
+        const err = new Error(classified.message) as Error & {
+          status: number;
+          code?: string;
+          provider: string;
+        };
+        err.status = response.status;
+        err.code = classified.code;
+        err.provider = this.provider;
+        throw err;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let actualModel = model;
+      let sawAny = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line || !line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (data === "[DONE]") {
+            if (!sawAny) {
+              throw new Error(`${this.provider}: empty stream`);
+            }
+            return { model: actualModel, provider: this.provider };
+          }
+          try {
+            const json = JSON.parse(data);
+            if (json.model) actualModel = json.model;
+            const delta = json?.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta.length > 0) {
+              sawAny = true;
+              yield delta;
+            }
+          } catch {
+            // skip malformed lines
+          }
+        }
+      }
+
+      if (!sawAny) throw new Error(`${this.provider}: empty stream`);
+      return { model: actualModel, provider: this.provider };
+    } finally {
+      clearTimeout(timeoutId);
+      if (externalAbort && externalListener) {
+        externalAbort.removeEventListener("abort", externalListener);
+      }
+    }
   }
 }
 
@@ -489,5 +627,25 @@ export class ChainedRotator {
 
     const combined = lastErrors.map((e) => `${e.message}`).join(" ; ");
     throw new Error(`All providers exhausted: ${combined}`);
+  }
+
+  /** Streaming variant of chat(). Falls through to next provider on failure. */
+  async *chatStream(
+    opts: ChatOptions,
+  ): AsyncGenerator<string, { model: string; provider: string }, void> {
+    if (this.rotators.length === 0) {
+      throw new Error("ChainedRotator: no providers configured");
+    }
+    const errors: Error[] = [];
+    for (const rotator of this.rotators) {
+      try {
+        return yield* rotator.chatStream(opts);
+      } catch (error) {
+        errors.push(error as Error);
+      }
+    }
+    throw new Error(
+      `All providers exhausted (stream): ${errors.map((e) => e.message).join(" ; ")}`,
+    );
   }
 }

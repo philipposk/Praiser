@@ -134,6 +134,7 @@ const detectAlphabet = (text: string): string | null => {
 
 /* --------------------------- Message formatting --------------------------- */
 
+// For text-only models: collapse images to a text tag.
 const formatMessageForLLM = (msg: {
   role: string;
   content: string;
@@ -148,6 +149,27 @@ const formatMessageForLLM = (msg: {
   }
   return { role: msg.role as ChatMessage["role"], content: msg.content };
 };
+
+// For vision-capable models: pass images as content parts.
+const formatMessageForVisionLLM = (msg: {
+  role: string;
+  content: string;
+  images?: Array<{ url: string; type: string }>;
+}): ChatMessage => {
+  if (msg.role === "user" && msg.images && msg.images.length > 0) {
+    const parts: import("@/lib/llm-rotator").ContentPart[] = [];
+    if (msg.content) parts.push({ type: "text", text: msg.content });
+    for (const img of msg.images) {
+      parts.push({ type: "image_url", image_url: { url: img.url } });
+    }
+    return { role: "user", content: parts };
+  }
+  return { role: msg.role as ChatMessage["role"], content: msg.content };
+};
+
+const hasAnyAttachedImage = (
+  messages: Array<{ role: string; images?: Array<unknown> }>,
+): boolean => messages.some((m) => m.role === "user" && (m.images?.length ?? 0) > 0);
 
 /* --------------------------- JSON extraction --------------------------- */
 
@@ -244,73 +266,141 @@ export async function POST(request: Request) {
       conversationHistory: messages.slice(-10),
     });
 
-    const personImageInfo =
-      personInfo.images.length > 0 && praiseVolume >= 40
-        ? `\n\nNOTE: You have access to ${personInfo.images.length} image(s) of ${personInfo.name}. When you want to analyze or praise specific details about their appearance, style, smile, energy, or posture, mention those details. You can request to send an image by setting should_send_image to true.`
-        : "";
+    const lastUserText =
+      [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const forced = userWantsImage(lastUserText);
+    const userHasAttachments = hasAnyAttachedImage(messages);
+    const shouldUseJsonMode =
+      (forced && personInfo.images.length > 0) || userHasAttachments;
 
-    const messagesPayload: ChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...messages.slice(-10).map(formatMessageForLLM),
-      { role: "user", content: prompt + personImageInfo },
-    ];
+    if (shouldUseJsonMode) {
+      // Image flow (forced keyword OR user uploaded photo): single-shot JSON.
+      const personImageInfo =
+        personInfo.images.length > 0 && praiseVolume >= 40
+          ? `\n\nNOTE: You have access to ${personInfo.images.length} image(s) of ${personInfo.name}. When you want to analyze or praise specific details about their appearance, style, smile, energy, or posture, mention those details. You can request to send an image by setting should_send_image to true.`
+          : "";
 
-    let result: ChatResult;
-    try {
-      result = await rotator.chat({
-        messages: messagesPayload,
-        temperature: 0.7 + praiseVolume / 200,
-        responseFormatJson: true,
-      });
-    } catch (jsonModeError) {
-      // Some providers reject response_format. Retry without it; parser handles
-      // markdown-fenced JSON and plain-text fallback.
-      console.warn("JSON-mode failed, retrying without:", jsonModeError);
+      const messagesPayload: ChatMessage[] = [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...messages
+          .slice(-10)
+          .map(userHasAttachments ? formatMessageForVisionLLM : formatMessageForLLM),
+        { role: "user", content: prompt + personImageInfo },
+      ];
+
+      let result: ChatResult;
       try {
         result = await rotator.chat({
           messages: messagesPayload,
           temperature: 0.7 + praiseVolume / 200,
+          responseFormatJson: !userHasAttachments, // vision models may reject json mode
         });
-      } catch (fallbackError) {
-        return buildErrorResponse(fallbackError);
+      } catch (jsonModeError) {
+        console.warn("JSON-mode failed, retrying without:", jsonModeError);
+        try {
+          result = await rotator.chat({
+            messages: messagesPayload,
+            temperature: 0.7 + praiseVolume / 200,
+          });
+        } catch (fallbackError) {
+          return buildErrorResponse(fallbackError);
+        }
       }
+
+      const parsed = parseModelResponse(result.text);
+      if (forced) parsed.should_send_image = true;
+
+      const shouldSendImage =
+        Boolean(parsed.should_send_image) && personInfo.images.length > 0;
+      const imageToSend: MessageImage | null = shouldSendImage
+        ? personInfo.images[Math.floor(Math.random() * personInfo.images.length)]
+        : null;
+      const imageCaption = shouldSendImage && imageToSend
+        ? parsed.image_praise?.trim() || `Look at this photo of ${personInfo.name}`
+        : null;
+
+      return NextResponse.json({
+        assistantMessage: parsed.message,
+        separateImageMessage:
+          shouldSendImage && imageCaption
+            ? { content: imageCaption, images: [imageToSend!] }
+            : null,
+        model: result.model,
+        provider: result.provider,
+      });
     }
 
-    const parsed = parseModelResponse(result.text);
+    // Streaming flow (no image needed). SSE: each event is JSON.
+    const streamPayload: ChatMessage[] = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...messages.slice(-10).map(formatMessageForLLM),
+      { role: "user", content: prompt },
+    ];
 
-    // Force-image override: if user explicitly asked for a photo, honour it.
-    const lastUserText = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-    const forced = userWantsImage(lastUserText);
-    if (forced) {
-      parsed.should_send_image = true;
-    }
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const send = (event: Record<string, unknown>) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        };
+        try {
+          const gen = rotator.chatStream({
+            messages: streamPayload,
+            temperature: 0.7 + praiseVolume / 200,
+          });
+          // Strip JSON wrapper if model emits {"message":"..."} despite no JSON mode.
+          let firstChunk = true;
+          let unwrapping: "none" | "checking" | "json" | "text" = "checking";
+          let buffer = "";
 
-    const shouldSendImage =
-      Boolean(parsed.should_send_image) &&
-      personInfo.images &&
-      personInfo.images.length > 0;
+          while (true) {
+            const next = await gen.next();
+            if (next.done) {
+              if (unwrapping === "json" && buffer) {
+                const parsed = parseModelResponse(buffer);
+                send({ type: "delta", text: parsed.message });
+              }
+              send({
+                type: "meta",
+                model: next.value?.model,
+                provider: next.value?.provider,
+              });
+              break;
+            }
+            let delta = next.value;
+            if (firstChunk) {
+              firstChunk = false;
+              // Models in non-JSON mode usually emit plain text. But some
+              // (especially preview ones) still wrap output. Sniff first token.
+              const trimmed = delta.replace(/^\s+/, "");
+              if (trimmed.startsWith("{") || trimmed.startsWith("```")) {
+                unwrapping = "json";
+              } else {
+                unwrapping = "text";
+              }
+            }
+            if (unwrapping === "json") {
+              buffer += delta;
+              continue;
+            }
+            send({ type: "delta", text: delta });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "stream failed";
+          send({ type: "error", message });
+        } finally {
+          controller.close();
+        }
+      },
+    });
 
-    const imageToSend: MessageImage | null = shouldSendImage
-      ? personInfo.images[Math.floor(Math.random() * personInfo.images.length)]
-      : null;
-
-    let imageCaption: string | null = null;
-    if (shouldSendImage && imageToSend) {
-      if (parsed.image_praise && parsed.image_praise.trim()) {
-        imageCaption = parsed.image_praise;
-      } else {
-        imageCaption = `Look at this photo of ${personInfo.name}`;
-      }
-    }
-
-    return NextResponse.json({
-      assistantMessage: parsed.message,
-      separateImageMessage:
-        shouldSendImage && imageCaption
-          ? { content: imageCaption, images: [imageToSend!] }
-          : null,
-      model: result.model,
-      provider: result.provider,
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
     });
   } catch (error) {
     console.error("Groq praise error", error);

@@ -46,14 +46,38 @@ export const MessageBubble = ({ message, onImageClick }: Props) => {
 
   const shareMsg = async () => {
     if (typeof navigator === "undefined") return;
+    const state = useAppStore.getState();
+    const personName = state.personInfo?.name?.trim() || "Praiser";
+    const firstImage = state.personInfo?.images?.[0]?.url;
+
+    const params = new URLSearchParams({
+      text: message.content,
+      name: personName,
+      lang: state.uiLanguage,
+    });
+    if (firstImage) params.set("image", firstImage);
+    const ogUrl = `/api/og?${params.toString()}`;
+
     try {
+      // Try: download the OG card as a file and share with it.
+      const res = await fetch(ogUrl);
+      if (res.ok && navigator.share) {
+        const blob = await res.blob();
+        const file = new File([blob], "praiser-card.png", { type: "image/png" });
+        const data = { text: message.content, files: [file], title: personName };
+        if (navigator.canShare?.(data)) {
+          await navigator.share(data);
+          return;
+        }
+      }
+      // Fallback: share text only / copy to clipboard.
       if (navigator.share) {
-        await navigator.share({ text: message.content });
+        await navigator.share({ text: message.content, url: window.location.href });
       } else {
         await navigator.clipboard?.writeText(message.content);
       }
     } catch {
-      /* ignore */
+      /* user cancelled or unsupported */
     }
   };
 

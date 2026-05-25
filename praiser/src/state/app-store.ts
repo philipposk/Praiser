@@ -41,8 +41,9 @@ type AppStore = {
   darkMode: boolean;
   showSubjectPanel: boolean;
   settingsOpen: boolean;
-  addMessage: (message: Omit<Message, "id" | "createdAt">) => void;
+  addMessage: (message: Omit<Message, "id" | "createdAt">) => string;
   appendMessages: (messages: Omit<Message, "id" | "createdAt">[]) => void;
+  appendToMessageContent: (id: string, delta: string) => void;
   setPersonInfo: (info: PersonInfo | null) => void;
   setPraiseVolume: (value: number) => void;
   setPraiseBarVisible: (visible: boolean) => void;
@@ -325,18 +326,27 @@ const shouldResetPraiseFor = (mode: PraiseMode) =>
 export const useAppStore = create<AppStore>((set, get) => ({
   ...buildInitialState(),
 
-  addMessage: (message) =>
-    set((state) => {
-      const newMessages = [...state.messages, withIds(message)];
-      debounceChatSave(() => get().saveCurrentChat());
-      return { messages: newMessages };
-    }),
+  addMessage: (message) => {
+    const next = withIds(message);
+    set((state) => ({ messages: [...state.messages, next] }));
+    debounceChatSave(() => get().saveCurrentChat());
+    return next.id;
+  },
 
   appendMessages: (messages) =>
     set((state) => {
       const newMessages = [...state.messages, ...messages.map(withIds)];
       debounceChatSave(() => get().saveCurrentChat());
       return { messages: newMessages };
+    }),
+
+  appendToMessageContent: (id, delta) =>
+    set((state) => {
+      const idx = state.messages.findIndex((m) => m.id === id);
+      if (idx < 0) return {};
+      const updated = state.messages.slice();
+      updated[idx] = { ...updated[idx], content: updated[idx].content + delta };
+      return { messages: updated };
     }),
 
   setPersonInfo: (info) => {
