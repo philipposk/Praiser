@@ -42,6 +42,14 @@ export type PersonInfo = {
   mode?: ChatMode;
   /** ElevenLabs voice_id when the user has cloned a voice for this person. */
   ttsVoiceId?: string;
+  /**
+   * Compact fact bullets auto-extracted from prior conversations, injected
+   * into the system prompt to give the model long-term context. Capped at
+   * MEMORY_MAX_CHARS by /api/persons/memorize so prompt size stays bounded.
+   */
+  memory?: string;
+  /** Count of assistant messages that triggered the last memory update. */
+  memoryUpdatedAt?: number;
   images: MessageImage[];
   videos: Array<{
     url: string;

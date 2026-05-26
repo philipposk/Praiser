@@ -76,6 +76,9 @@ const requestSchema = z.object({
       mode: z
         .enum(["praise", "roast", "hype", "birthday", "anniversary", "affirmation", "tribute"])
         .optional(),
+      memory: z.string().optional(),
+      memoryUpdatedAt: z.number().optional(),
+      ttsVoiceId: z.string().optional(),
     })
     .nullable()
     .optional(),
@@ -367,7 +370,10 @@ export async function POST(request: Request) {
     const shouldUseJsonMode =
       (forced && personInfo.images.length > 0) || userHasAttachments;
 
-    const systemContent = `${modePrefix(personInfo.mode)}\n\n${SYSTEM_PROMPT}`;
+    const memoryBlock = personInfo.memory?.trim()
+      ? `\n\nLONG-TERM MEMORY ABOUT ${personInfo.name.toUpperCase()} (from prior chats):\n${personInfo.memory.trim()}\n\nUse these facts naturally — never list them or quote them verbatim.`
+      : "";
+    const systemContent = `${modePrefix(personInfo.mode)}\n\n${SYSTEM_PROMPT}${memoryBlock}`;
 
     if (shouldUseJsonMode) {
       // Image flow (forced keyword OR user uploaded photo): single-shot JSON.

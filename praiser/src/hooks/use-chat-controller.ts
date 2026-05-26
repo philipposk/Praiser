@@ -7,6 +7,46 @@ import type { Message, MessageImage } from "@/lib/types";
 
 const PRAISE_REQUEST_TIMEOUT_MS = 120_000;
 const FIRST_TOKEN_TIMEOUT_MS = 30_000;
+const MEMORIZE_INTERVAL = 8; // assistant messages between memory updates
+
+const triggerMemorize = async (lang: "el" | "en") => {
+  const state = useAppStore.getState();
+  const person = state.personInfo;
+  if (!person || !person.id) return;
+
+  const assistantCount = state.messages.filter((m) => m.role === "assistant").length;
+  const lastUpdate = person.memoryUpdatedAt ?? 0;
+  if (assistantCount < MEMORIZE_INTERVAL) return;
+  if (assistantCount - lastUpdate < MEMORIZE_INTERVAL) return;
+
+  try {
+    const trimmed = state.messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-30)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    const response = await fetch("/api/persons/memorize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personName: person.name,
+        previousMemory: person.memory ?? "",
+        messages: trimmed,
+        lang,
+      }),
+    });
+    if (!response.ok) return;
+    const data: { memory?: string } = await response.json();
+    if (data.memory && person.id) {
+      useAppStore.getState().updatePerson(person.id, {
+        memory: data.memory,
+        memoryUpdatedAt: assistantCount,
+      });
+    }
+  } catch {
+    // best-effort background job; ignore failures
+  }
+};
 
 export const useChatController = () => {
   const addMessage = useAppStore((state) => state.addMessage);
@@ -123,6 +163,8 @@ export const useChatController = () => {
           // (triggered by the next addMessage / setChatName / etc — explicit
           // saveCurrentChat avoids losing the streamed reply if user closes).
           useAppStore.getState().saveCurrentChat();
+          // Fire-and-forget memory update.
+          void triggerMemorize(useAppStore.getState().uiLanguage);
           return;
         }
 
@@ -145,7 +187,10 @@ export const useChatController = () => {
             images: data.separateImageMessage.images,
           });
         }
-        if (messagesToAdd.length > 0) appendMessages(messagesToAdd);
+        if (messagesToAdd.length > 0) {
+          appendMessages(messagesToAdd);
+          void triggerMemorize(useAppStore.getState().uiLanguage);
+        }
       } catch (error) {
         if ((error as { name?: string })?.name === "AbortError") {
           appendMessages([
