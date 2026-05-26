@@ -147,6 +147,9 @@ export const useTextToSpeech = () => {
         return;
       }
 
+      // If the active person has a cloned voice, use it for ElevenLabs.
+      const personVoiceId = useAppStore.getState().personInfo?.ttsVoiceId;
+
       // Server TTS path
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TTS_REQUEST_TIMEOUT_MS);
@@ -154,7 +157,11 @@ export const useTextToSpeech = () => {
         const response = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: cleanText, language: lang }),
+          body: JSON.stringify({
+            text: cleanText,
+            language: lang,
+            ...(personVoiceId ? { voiceId: personVoiceId } : {}),
+          }),
           signal: controller.signal,
         });
 

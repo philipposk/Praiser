@@ -228,6 +228,70 @@ const parseModelResponse = (text: string): z.infer<typeof praiseResponseSchema> 
   return { message: text.trim() || "…" };
 };
 
+/* --------------------------- Streaming helper --------------------------- */
+
+const buildSSEStream = (
+  rotator: ChainedRotator,
+  payload: ChatMessage[],
+  temperature: number,
+): Response => {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      };
+      try {
+        const gen = rotator.chatStream({ messages: payload, temperature });
+        let firstChunk = true;
+        let unwrapping: "none" | "checking" | "json" | "text" = "checking";
+        let buffer = "";
+
+        while (true) {
+          const next = await gen.next();
+          if (next.done) {
+            if (unwrapping === "json" && buffer) {
+              const parsed = parseModelResponse(buffer);
+              send({ type: "delta", text: parsed.message });
+            }
+            send({
+              type: "meta",
+              model: next.value?.model,
+              provider: next.value?.provider,
+            });
+            break;
+          }
+          const delta = next.value;
+          if (firstChunk) {
+            firstChunk = false;
+            const trimmed = delta.replace(/^\s+/, "");
+            unwrapping = trimmed.startsWith("{") || trimmed.startsWith("```") ? "json" : "text";
+          }
+          if (unwrapping === "json") {
+            buffer += delta;
+            continue;
+          }
+          send({ type: "delta", text: delta });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "stream failed";
+        send({ type: "error", message });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+};
+
 /* --------------------------- POST handler --------------------------- */
 
 export async function POST(request: Request) {
@@ -246,9 +310,10 @@ export async function POST(request: Request) {
 
     const rotator = getRotator();
 
-    /* ---- Normal assistant path (no personInfo) ---- */
+    /* ---- Normal assistant path (no personInfo) — streams ---- */
 
     if (!personInfo || !personInfo.name.trim()) {
+      const userHasAttachments = hasAnyAttachedImage(messages);
       const shouldUseGreek = detectGreek(messages);
       const basePrompt =
         "You are a helpful AI assistant. Answer questions normally and be conversational. Do not mention anything about praising people or adding person info.";
@@ -257,24 +322,34 @@ export async function POST(request: Request) {
           " 🚨 CRITICAL: The user IS WRITING IN GREEK. You MUST respond ENTIRELY in GREEK. Do NOT use English. Do NOT mix languages. ONLY GREEK. Maintain language consistency."
         : basePrompt;
 
-      try {
-        const result = await rotator.chat({
-          messages: [
-            { role: "system", content: systemContent },
-            ...messages.slice(-10).map(formatMessageForLLM),
-          ],
-          temperature: 0.7,
-        });
-        return NextResponse.json({
-          assistantMessage: result.text || "I'm here to help! What would you like to know?",
-          separateImageMessage: null,
-          model: result.model,
-          provider: result.provider,
-        });
-      } catch (error) {
-        console.error("Normal assistant response error:", error);
-        return buildErrorResponse(error);
+      // Vision input → single-shot non-streaming (Groq vision SDK quirks).
+      // Else stream.
+      if (userHasAttachments) {
+        try {
+          const result = await rotator.chat({
+            messages: [
+              { role: "system", content: systemContent },
+              ...messages.slice(-10).map(formatMessageForVisionLLM),
+            ],
+            temperature: 0.7,
+          });
+          return NextResponse.json({
+            assistantMessage: result.text || "I'm here to help! What would you like to know?",
+            separateImageMessage: null,
+            model: result.model,
+            provider: result.provider,
+          });
+        } catch (error) {
+          console.error("Normal assistant vision response error:", error);
+          return buildErrorResponse(error);
+        }
       }
+
+      const normalPayload: ChatMessage[] = [
+        { role: "system", content: systemContent },
+        ...messages.slice(-10).map(formatMessageForLLM),
+      ];
+      return buildSSEStream(rotator, normalPayload, 0.7);
     }
 
     /* ---- Praise path ---- */
@@ -351,78 +426,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // Streaming flow (no image needed). SSE: each event is JSON.
+    // Streaming flow (no image needed).
     const streamPayload: ChatMessage[] = [
       { role: "system", content: systemContent },
       ...messages.slice(-10).map(formatMessageForLLM),
       { role: "user", content: prompt },
     ];
 
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        const send = (event: Record<string, unknown>) => {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-        };
-        try {
-          const gen = rotator.chatStream({
-            messages: streamPayload,
-            temperature: 0.7 + praiseVolume / 200,
-          });
-          // Strip JSON wrapper if model emits {"message":"..."} despite no JSON mode.
-          let firstChunk = true;
-          let unwrapping: "none" | "checking" | "json" | "text" = "checking";
-          let buffer = "";
-
-          while (true) {
-            const next = await gen.next();
-            if (next.done) {
-              if (unwrapping === "json" && buffer) {
-                const parsed = parseModelResponse(buffer);
-                send({ type: "delta", text: parsed.message });
-              }
-              send({
-                type: "meta",
-                model: next.value?.model,
-                provider: next.value?.provider,
-              });
-              break;
-            }
-            let delta = next.value;
-            if (firstChunk) {
-              firstChunk = false;
-              // Models in non-JSON mode usually emit plain text. But some
-              // (especially preview ones) still wrap output. Sniff first token.
-              const trimmed = delta.replace(/^\s+/, "");
-              if (trimmed.startsWith("{") || trimmed.startsWith("```")) {
-                unwrapping = "json";
-              } else {
-                unwrapping = "text";
-              }
-            }
-            if (unwrapping === "json") {
-              buffer += delta;
-              continue;
-            }
-            send({ type: "delta", text: delta });
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "stream failed";
-          send({ type: "error", message });
-        } finally {
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-      },
-    });
+    return buildSSEStream(rotator, streamPayload, 0.7 + praiseVolume / 200);
   } catch (error) {
     console.error("Groq praise error", error);
     if (error instanceof z.ZodError) {

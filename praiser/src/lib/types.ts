@@ -40,6 +40,8 @@ export type PersonInfo = {
   name: string;
   /** Conversational tone for this person. Defaults to "praise". */
   mode?: ChatMode;
+  /** ElevenLabs voice_id when the user has cloned a voice for this person. */
+  ttsVoiceId?: string;
   images: MessageImage[];
   videos: Array<{
     url: string;

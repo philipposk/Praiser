@@ -36,6 +36,28 @@ export const SettingsDrawer = () => {
   const [draft, setDraft] = useState<PersonInfo>(storePerson ?? emptyPerson());
   const [tagline, setTagline] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const voiceFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [wikiBusy, setWikiBusy] = useState(false);
+  const [wikiError, setWikiError] = useState<string | null>(null);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
+
+  // Probe ElevenLabs availability when drawer opens.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch("/api/tts/clone", { method: "GET" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { available?: boolean } | null) => {
+        if (!cancelled) setVoiceAvailable(Boolean(data?.available));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,6 +89,14 @@ export const SettingsDrawer = () => {
           newPerson: "Νέο πρόσωπο",
           deletePerson: "Διαγραφή",
           switchTo: "Επιλογή",
+          fetchWiki: "Από Wikipedia",
+          fetching: "Φόρτωση…",
+          voiceClone: "Κλωνοποίηση φωνής",
+          voiceCloneSub: "Ανέβασε δείγμα ήχου (10-60 δευτερόλεπτα) για κλωνοποιημένη φωνή",
+          voiceUpload: "Επιλογή ήχου",
+          voiceCloned: "Φωνή κλωνοποιήθηκε ✓",
+          voiceClear: "Επαναφορά",
+          voiceUnavailable: "Απαιτεί ELEVENLABS_API_KEY στον server.",
         }
       : {
           title: "Settings",
@@ -87,6 +117,14 @@ export const SettingsDrawer = () => {
           newPerson: "New person",
           deletePerson: "Delete",
           switchTo: "Switch",
+          fetchWiki: "From Wikipedia",
+          fetching: "Fetching…",
+          voiceClone: "Voice clone",
+          voiceCloneSub: "Upload a 10-60s audio sample so the person speaks in their own voice",
+          voiceUpload: "Choose audio",
+          voiceCloned: "Voice cloned ✓",
+          voiceClear: "Reset",
+          voiceUnavailable: "Requires ELEVENLABS_API_KEY on the server.",
         };
 
   const close = () => setOpen(false);
@@ -148,6 +186,95 @@ export const SettingsDrawer = () => {
 
   const removePhoto = (i: number) => {
     setDraft((d) => ({ ...d, images: d.images.filter((_, j) => j !== i) }));
+  };
+
+  const importFromWikipedia = async () => {
+    if (wikiBusy) return;
+    const name = draft.name.trim();
+    if (!name) {
+      setWikiError(lang === "el" ? "Πρόσθεσε όνομα πρώτα." : "Add a name first.");
+      return;
+    }
+    setWikiBusy(true);
+    setWikiError(null);
+    try {
+      const params = new URLSearchParams({ q: name, lang });
+      const response = await fetch(`/api/import/wikipedia?${params.toString()}`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body?.error || `HTTP ${response.status}`);
+      }
+      const data: {
+        title?: string;
+        description?: string;
+        extract?: string;
+        thumbnail?: string | null;
+      } = await response.json();
+
+      setDraft((d) => {
+        const extract = data.extract?.trim() ?? "";
+        const desc = data.description?.trim() ?? "";
+        const joined = [desc, extract].filter(Boolean).join(". ");
+        const nextExtraInfo = d.extraInfo
+          ? joined
+            ? `${d.extraInfo}\n\n${joined}`
+            : d.extraInfo
+          : joined;
+        const nextImages =
+          data.thumbnail && !d.images.some((img) => img.url === data.thumbnail)
+            ? [
+                { url: data.thumbnail, type: "image/jpeg", name: `${data.title ?? name}.jpg` },
+                ...d.images,
+              ]
+            : d.images;
+        return {
+          ...d,
+          name: data.title ?? d.name,
+          extraInfo: nextExtraInfo,
+          images: nextImages,
+        };
+      });
+      if (data.extract) {
+        const first = data.extract.split(/[.\n]/)[0]?.trim();
+        if (first) setTagline(first);
+      }
+    } catch (error) {
+      setWikiError(error instanceof Error ? error.message : "Failed");
+    } finally {
+      setWikiBusy(false);
+    }
+  };
+
+  const onPickVoiceSample = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    if (!draft.name.trim()) {
+      setVoiceError(lang === "el" ? "Όνομα πρώτα." : "Name first.");
+      if (voiceFileInputRef.current) voiceFileInputRef.current.value = "";
+      return;
+    }
+
+    setVoiceBusy(true);
+    setVoiceError(null);
+    try {
+      const formData = new FormData();
+      formData.append("name", draft.name.trim());
+      for (const f of files) formData.append("files", f, f.name);
+      const response = await fetch("/api/tts/clone", { method: "POST", body: formData });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body?.error || `HTTP ${response.status}`);
+      }
+      const data: { voiceId?: string } = await response.json();
+      if (data.voiceId) {
+        setDraft((d) => ({ ...d, ttsVoiceId: data.voiceId }));
+      }
+    } catch (error) {
+      setVoiceError(error instanceof Error ? error.message : "Failed");
+    } finally {
+      setVoiceBusy(false);
+      if (voiceFileInputRef.current) voiceFileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -235,11 +362,33 @@ export const SettingsDrawer = () => {
 
         <div className="field">
           <label>{T.name}</label>
-          <input
-            value={draft.name}
-            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-            placeholder={lang === "el" ? "Όνομα προσώπου" : "Person's name"}
-          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={draft.name}
+              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+              placeholder={lang === "el" ? "Όνομα προσώπου" : "Person's name"}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="side-link"
+              style={{
+                width: "auto",
+                padding: "8px 12px",
+                color: "var(--clay)",
+                whiteSpace: "nowrap",
+              }}
+              onClick={importFromWikipedia}
+              disabled={wikiBusy || !draft.name.trim()}
+              title={T.fetchWiki}
+            >
+              <Icon name="book" size={12} />
+              {wikiBusy ? T.fetching : T.fetchWiki}
+            </button>
+          </div>
+          {wikiError && (
+            <span style={{ fontSize: 11, color: "var(--clay)", marginTop: 4 }}>{wikiError}</span>
+          )}
         </div>
         <div className="field">
           <label>{T.tagline}</label>
@@ -285,6 +434,64 @@ export const SettingsDrawer = () => {
               <Icon name="plus" size={16} />
             </button>
           </div>
+        </div>
+
+        <div className="field">
+          <label>{T.voiceClone}</label>
+          <input
+            ref={voiceFileInputRef}
+            type="file"
+            accept="audio/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={onPickVoiceSample}
+          />
+          {!voiceAvailable && (
+            <div className="row-toggle-sub" style={{ marginTop: 2 }}>
+              {T.voiceUnavailable}
+            </div>
+          )}
+          {voiceAvailable && draft.ttsVoiceId && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "var(--clay)", fontSize: 13 }}>{T.voiceCloned}</span>
+              <span className="mono" style={{ color: "var(--muted-2)", fontSize: 11 }}>
+                {draft.ttsVoiceId.slice(0, 10)}…
+              </span>
+              <button
+                type="button"
+                className="side-link"
+                style={{ width: "auto", color: "var(--muted)", marginLeft: "auto" }}
+                onClick={() => setDraft((d) => ({ ...d, ttsVoiceId: undefined }))}
+              >
+                {T.voiceClear}
+              </button>
+            </div>
+          )}
+          {voiceAvailable && !draft.ttsVoiceId && (
+            <>
+              <div className="row-toggle-sub" style={{ marginTop: 2 }}>
+                {T.voiceCloneSub}
+              </div>
+              <button
+                type="button"
+                className="side-link"
+                style={{
+                  width: "auto",
+                  padding: "8px 12px",
+                  marginTop: 6,
+                  color: "var(--clay)",
+                }}
+                onClick={() => voiceFileInputRef.current?.click()}
+                disabled={voiceBusy || !draft.name.trim()}
+              >
+                <Icon name="mic" size={12} />
+                {voiceBusy ? T.fetching : T.voiceUpload}
+              </button>
+            </>
+          )}
+          {voiceError && (
+            <span style={{ fontSize: 11, color: "var(--clay)", marginTop: 4 }}>{voiceError}</span>
+          )}
         </div>
 
         <div className="drawer-section-title">{T.general}</div>
