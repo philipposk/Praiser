@@ -28,7 +28,14 @@ Built for fun (praise your friend, hype your partner, write a birthday note in t
 |---|---|---|
 | **3-provider LLM rotation** | Groq → OpenRouter → NVIDIA NIM, sticky cursor per provider, 1h model cache, automatic fallback on 429/503/decommissioned | Most chat apps hard-code one API. This stays online when free tiers throttle. Zero-cost runtime as long as any provider has capacity. |
 | **Streaming responses** | Server-Sent Events from `/api/groq/praise`, token-by-token UI updates | First token lands in ~300ms instead of 2-3s. Feels alive. |
+| **Multi-person workspace + 7 modes** | One workspace, many subjects. Each has its own mode: praise · roast · hype · birthday · anniversary · affirmation · tribute. System prompt branches per mode. | Same engine, completely different first-impression. Roast your friend, write a birthday card for your mum, hype your team. |
+| **Curated persona presets** | One-click load: Socrates, Mr. Rogers, Mary Oliver, Bob Ross, Marcus Aurelius, Carl Sagan, Ada Lovelace, Heracles. Each ships with a fitting default mode. | First-run friction = zero. Pick a preset, chat. |
+| **Long-term memory** | Every 8 assistant replies, low-temp call extracts compact fact bullets from the conversation and merges into the person's `memory`. Memory is injected into the system prompt on future chats. | Solves Character.AI's #1 user complaint ("the bot forgets") with no DB and no extra latency on user turns. |
+| **AI-generated portraits** | "Generate portrait" button in SettingsDrawer. POST `/api/portrait` builds a prompt from name + lore, calls Pollinations Flux (free, no key), stashes in Vercel Blob. | Instant photo for fictional / historical personas. |
+| **Wikipedia bio import** | "From Wikipedia" button in SettingsDrawer fetches REST summary endpoint in the active UI language, appends extract to lore + adds thumbnail to images. | Drop in a Wikipedia bio in two clicks, no copy-paste. |
+| **Public chat permalinks** | `POST /api/chats/share` snapshots the chat + person to a Vercel Blob and returns an 8-char shortcode. `/c/[shortcode]` renders read-only with dynamic OG metadata. | WhatsApp / Twitter / Slack unfurl with the warm-paper share card. Viral loop. |
 | **Live voice mode** | Push the radio icon. Mic stays on, RMS VAD detects silence, Whisper transcribes, response streams back, browser TTS speaks, mic re-arms automatically. | Hands-free conversation, ~2s round-trip, free. |
+| **Voice cloning per person** | Upload a 10–60s audio sample → ElevenLabs `/voices/add` → stored as `personInfo.ttsVoiceId`. TTS uses that voice automatically. | The person speaks praise about themselves. Unreasonably funny. |
 | **Three-tier TTS** | ElevenLabs → HuggingFace XTTS-v2 → `window.speechSynthesis`. Server returns 204 if no key configured so client falls back to browser. | Works for free; upgrades automatically if you add a key. |
 | **Vision input** | Drag a photo into the composer → routed to Groq Llama 4 Scout for actual analysis. | "Praise the smile in this selfie" actually praises the smile. |
 | **Edge OG cards** | `/api/og?text=…&name=…&image=…` returns a 1200×630 PNG with warm-paper styling, served from Edge runtime. | Shares unfurl with a beautiful card on every social platform. |
@@ -198,17 +205,45 @@ If a provider exhausts all its models, the next provider in the chain takes over
 
 - [x] Multi-provider LLM rotation
 - [x] Live voice mode with VAD
-- [x] Streaming responses
+- [x] Streaming responses (both branches)
 - [x] Edge OG share cards
 - [x] Vision input (Groq Llama 4 Scout)
 - [x] Bilingual EL + EN
-- [ ] Multi-person workspace (`persons[]`)
-- [ ] Mode selector (praise / roast / hype / birthday / anniversary / affirmation / tribute)
-- [ ] Public chat permalinks (`/c/[shortcode]`)
-- [ ] RAG over person notes / URLs
-- [ ] Voice cloning UI (ElevenLabs)
+- [x] Multi-person workspace
+- [x] Mode selector (7 modes: praise / roast / hype / birthday / anniversary / affirmation / tribute)
+- [x] Curated persona presets
+- [x] Public chat permalinks (`/c/[shortcode]`)
+- [x] Wikipedia bio import
+- [x] AI-generated portraits (Pollinations)
+- [x] Voice cloning per person (ElevenLabs)
+- [x] Long-term memory (auto-summarise)
+- [x] Playwright test suite + GitHub Actions CI
+- [x] Sentry error monitoring (optional)
 - [ ] Telegram bot
-- [ ] Playwright test suite + GitHub Actions CI
+- [ ] Slack / Teams app
+- [ ] RAG over arbitrary URLs (beyond Wikipedia)
+- [ ] Capacitor mobile wrapper
+
+## API endpoints (full surface)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/groq/praise` | Chat completion. SSE stream when no image-send needed, JSON otherwise. |
+| POST | `/api/groq/transcribe` | Whisper STT with BCP-47 `language` hint. |
+| POST | `/api/tts` | Server-side TTS with provider chain. Returns 204 if no key. |
+| POST | `/api/tts/clone` | ElevenLabs voice cloning. Returns `voice_id`. |
+| GET  | `/api/tts/clone` | Capability probe. |
+| POST | `/api/og` (GET) | Edge OG share-card PNG generator. |
+| POST | `/api/og?...` (GET) | Same; query: `text` `name` `image` `lang`. |
+| POST | `/api/upload` | Image / video upload to Vercel Blob. |
+| GET  | `/api/settings` | Load user settings blob. |
+| POST | `/api/settings` | Save user settings blob. |
+| GET  | `/api/import/wikipedia?q=&lang=` | Wikipedia REST summary proxy. |
+| POST | `/api/portrait` | AI portrait via Pollinations Flux. |
+| POST | `/api/chats/share` | Snapshot chat → shortcode. |
+| GET  | `/api/chats/share?code=` | Fetch shared chat by shortcode. |
+| POST | `/api/persons/memorize` | Extract memory bullets from conversation. |
+| GET  | `/c/[shortcode]` | Public read-only chat page with dynamic OG metadata. |
 
 ## Development
 
