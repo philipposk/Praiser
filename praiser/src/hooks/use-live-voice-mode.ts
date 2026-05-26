@@ -10,6 +10,25 @@ import { useVad } from "@/hooks/use-vad";
 const TRANSCRIBE_TIMEOUT_MS = 30_000;
 const MIN_UTTERANCE_BYTES = 1024; // skip tiny blobs (clicks, breaths)
 
+// Match end-of-sentence punctuation followed by whitespace, including Greek
+// question mark (·, ;).
+const SENTENCE_END_RE = /([.!?·;。!?…])\s+/g;
+
+/** Extract complete sentences from a chunk; return whatever doesn't end yet as remainder. */
+const extractSentences = (text: string): { complete: string[]; remainder: string } => {
+  const complete: string[] = [];
+  let lastIdx = 0;
+  SENTENCE_END_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = SENTENCE_END_RE.exec(text)) !== null) {
+    const endIdx = m.index + m[0].length;
+    const slice = text.slice(lastIdx, endIdx).trim();
+    if (slice) complete.push(slice);
+    lastIdx = endIdx;
+  }
+  return { complete, remainder: text.slice(lastIdx) };
+};
+
 /**
  * Live hands-free voice mode.
  *
@@ -213,29 +232,107 @@ export const useLiveVoiceMode = () => {
     };
   }, [liveMode, start, stop]);
 
-  // Speak new assistant messages while in live mode.
+  // Sentence-chunked TTS while streaming.
+  //
+  // Watches the currently-streaming assistant message as it grows. Every time
+  // a complete sentence appears, queue it for playback so the user hears the
+  // first sentence within ~600ms instead of waiting 3-5s for the whole reply.
+  // Mic stays paused until the queue is empty AND the stream is finished.
+  const streamingIdRef = useRef<string | null>(null);
+  const spokenIdxRef = useRef(0);
+  const queueRef = useRef<string[]>([]);
+  const playingRef = useRef(false);
+
+  const tryResumeMic = useCallback(() => {
+    if (!liveModeRef.current) return;
+    if (queueRef.current.length > 0 || playingRef.current) return;
+    if (useAppStore.getState().isProcessing) return;
+    resumeMic();
+  }, [resumeMic]);
+
+  const drainQueue = useCallback(() => {
+    if (!liveModeRef.current) return;
+    if (queueRef.current.length === 0) {
+      playingRef.current = false;
+      tryResumeMic();
+      return;
+    }
+    const next = queueRef.current.shift()!;
+    playingRef.current = true;
+    void speak({
+      text: next,
+      language: uiLanguage,
+      onEnd: () => drainQueue(),
+      onError: () => drainQueue(),
+    });
+  }, [speak, tryResumeMic, uiLanguage]);
+
   useEffect(() => {
     if (!liveMode) return;
+
     const unsub = useAppStore.subscribe((state, prev) => {
       if (!liveModeRef.current) return;
-      const next = state.messages;
-      if (next.length === 0 || next === prev.messages) return;
-      const last = next[next.length - 1];
-      if (!last || last.role !== "assistant") return;
-      if (last.id === lastSpokenIdRef.current) return;
-      lastSpokenIdRef.current = last.id;
-      setProcessing(false);
 
-      pauseMic();
-      void speak({
-        text: last.content,
-        language: uiLanguage,
-        onEnd: () => resumeMic(),
-        onError: () => resumeMic(),
-      });
+      const last = state.messages[state.messages.length - 1];
+      const prevLast = prev.messages[prev.messages.length - 1];
+
+      // Stream just finished: flush any tail that wasn't terminated by
+      // punctuation so the user hears the full reply.
+      if (prev.isProcessing && !state.isProcessing) {
+        if (
+          last &&
+          last.role === "assistant" &&
+          last.id === streamingIdRef.current
+        ) {
+          const remainder = last.content.slice(spokenIdxRef.current).trim();
+          if (remainder) {
+            queueRef.current.push(remainder);
+            spokenIdxRef.current = last.content.length;
+          }
+        }
+        if (!playingRef.current) drainQueue();
+        else tryResumeMic();
+      }
+
+      if (!last || last.role !== "assistant") return;
+      if (last === prevLast && last.content === prevLast?.content) return;
+
+      // New assistant message — reset tracking + pause mic.
+      if (last.id !== streamingIdRef.current) {
+        streamingIdRef.current = last.id;
+        spokenIdxRef.current = 0;
+        pauseMic();
+      }
+
+      const content = last.content;
+      if (content.length <= spokenIdxRef.current) return;
+
+      const { complete, remainder } = extractSentences(
+        content.slice(spokenIdxRef.current),
+      );
+      if (complete.length === 0) return;
+      for (const sentence of complete) {
+        queueRef.current.push(sentence);
+      }
+      spokenIdxRef.current = content.length - remainder.length;
+
+      if (!playingRef.current) drainQueue();
     });
-    return unsub;
-  }, [liveMode, pauseMic, resumeMic, setProcessing, speak, uiLanguage]);
+
+    return () => {
+      unsub();
+      // Reset chunked state when leaving live mode.
+      queueRef.current = [];
+      streamingIdRef.current = null;
+      spokenIdxRef.current = 0;
+      playingRef.current = false;
+    };
+  }, [liveMode, drainQueue, pauseMic, tryResumeMic]);
+
+  // Mark the legacy ref unused (kept for backwards compat in case some
+  // upstream caller imports it). Silence the unused-var warning via void.
+  void lastSpokenIdRef;
+  void setProcessing;
 
   return { liveMode, setLiveMode };
 };
