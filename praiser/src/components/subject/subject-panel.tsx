@@ -104,6 +104,7 @@ export const SubjectPanel = ({ onImageClick }: Props) => {
           epic: "Επικό",
           noPerson: "Δεν έχει οριστεί πρόσωπο",
           addPerson: "Προσθήκη προσώπου",
+          memory: "Τι θυμάται ο Praiser",
         }
       : {
           subject: "The subject",
@@ -117,6 +118,7 @@ export const SubjectPanel = ({ onImageClick }: Props) => {
           epic: "Epic",
           noPerson: "No person set",
           addPerson: "Add person",
+          memory: "What Praiser remembers",
         };
 
   const onPraiseChange = (value: number) => {
@@ -266,6 +268,23 @@ export const SubjectPanel = ({ onImageClick }: Props) => {
                 {a}
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {personInfo.memory && personInfo.memory.trim() && (
+        <div className="subj-section">
+          <span className="label">{T.memory}</span>
+          <div
+            className="lore"
+            style={{
+              fontStyle: "italic",
+              color: "var(--ink-2)",
+              borderLeft: "2px solid var(--clay)",
+              paddingLeft: 10,
+            }}
+          >
+            {personInfo.memory.trim()}
           </div>
         </div>
       )}

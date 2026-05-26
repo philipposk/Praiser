@@ -82,7 +82,10 @@ The app returns canned responses so you can poke the UI without burning Groq cre
 | `ELEVENLABS_API_KEY` | optional | Premium TTS (highest quality, paid). |
 | `HF_API_KEY` | optional | HuggingFace XTTS-v2 TTS (free tier, slow cold start). |
 | `NEXT_PUBLIC_SITE_URL` | optional | Used in OG meta tags. Defaults to `https://praiser.vercel.app`. |
+| `TELEGRAM_BOT_TOKEN` | optional | Telegram bot token from @BotFather to enable `/api/telegram/webhook`. |
+| `TELEGRAM_WEBHOOK_SECRET` | optional | Shared secret validated against `X-Telegram-Bot-Api-Secret-Token` header. |
 | `PRAISER_USE_GROQ_STUB` | optional | `true` to bypass LLM calls in dev/test. |
+| `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` | optional | Enable Sentry error monitoring. |
 
 ## Architecture
 
@@ -219,7 +222,7 @@ If a provider exhausts all its models, the next provider in the chain takes over
 - [x] Long-term memory (auto-summarise)
 - [x] Playwright test suite + GitHub Actions CI
 - [x] Sentry error monitoring (optional)
-- [ ] Telegram bot
+- [x] Telegram bot
 - [ ] Slack / Teams app
 - [ ] RAG over arbitrary URLs (beyond Wikipedia)
 - [ ] Capacitor mobile wrapper
@@ -244,6 +247,30 @@ If a provider exhausts all its models, the next provider in the chain takes over
 | GET  | `/api/chats/share?code=` | Fetch shared chat by shortcode. |
 | POST | `/api/persons/memorize` | Extract memory bullets from conversation. |
 | GET  | `/c/[shortcode]` | Public read-only chat page with dynamic OG metadata. |
+
+## Telegram bot setup
+
+The repo ships a Telegram webhook handler. To turn it on:
+
+```bash
+# 1. Create a bot via @BotFather on Telegram. Copy the token.
+export TELEGRAM_BOT_TOKEN=123456:AAA-...
+# 2. (Recommended) Pick a long random shared secret.
+export TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 24)
+
+# 3. Set both env vars on your Vercel project, redeploy.
+
+# 4. Tell Telegram where to send updates.
+curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"url\": \"https://YOUR-DEPLOY-URL/api/telegram/webhook\",
+    \"secret_token\": \"${TELEGRAM_WEBHOOK_SECRET}\",
+    \"allowed_updates\": [\"message\"]
+  }"
+```
+
+`/start`, `/reset`, and `/help` are handled without hitting the LLM. Everything else routes through the same rotator chain the web app uses, with per-chat history stored in `telegram-chats/<chatId>.json` on Vercel Blob (20 turns retained).
 
 ## Development
 
