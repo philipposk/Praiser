@@ -47,6 +47,8 @@ type AppStore = {
   darkMode: boolean;
   showSubjectPanel: boolean;
   settingsOpen: boolean;
+  /** Mode used by EmptyState when no person is loaded yet (set by alias routes like /roast). */
+  startMode: ChatMode;
   addMessage: (message: Omit<Message, "id" | "createdAt">) => string;
   appendMessages: (messages: Omit<Message, "id" | "createdAt">[]) => void;
   appendToMessageContent: (id: string, delta: string) => void;
@@ -71,6 +73,7 @@ type AppStore = {
   setDarkMode: (value: boolean) => void;
   setShowSubjectPanel: (value: boolean) => void;
   setSettingsOpen: (value: boolean) => void;
+  setStartMode: (mode: ChatMode) => void;
   saveCurrentChat: () => void;
   loadChat: (chatId: string) => void;
   deleteChat: (chatId: string) => void;
@@ -360,6 +363,7 @@ const buildInitialState = () => ({
   showSubjectPanel: DEFAULTS.showSubjectPanel,
   liveMode: false,
   settingsOpen: false,
+  startMode: "praise" as ChatMode,
 });
 
 const buildChatFromState = (state: AppStore): Chat => {
@@ -622,6 +626,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   setSettingsOpen: (value) => set({ settingsOpen: value }),
+
+  setStartMode: (mode) => set({ startMode: mode }),
 
   newChat: () => {
     const state = get();

@@ -187,9 +187,10 @@ export const EmptyState = ({ onPick }: EmptyStateProps) => {
   const personInfo = useAppStore((s) => s.personInfo);
   const setPersonInfo = useAppStore((s) => s.setPersonInfo);
   const persons = useAppStore((s) => s.persons);
+  const startMode = useAppStore((s) => s.startMode);
 
   const personName = personInfo?.name?.trim() || (lang === "el" ? "κάποιον" : "someone");
-  const mode: ChatMode = personInfo?.mode ?? "praise";
+  const mode: ChatMode = personInfo?.mode ?? startMode;
   const showPresets = !personInfo && persons.length === 0;
 
   const greet = greetForMode(mode, lang, personName);
