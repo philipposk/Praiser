@@ -43,6 +43,8 @@ export const SettingsDrawer = () => {
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
+  const [portraitBusy, setPortraitBusy] = useState(false);
+  const [portraitError, setPortraitError] = useState<string | null>(null);
 
   // Probe ElevenLabs availability when drawer opens.
   useEffect(() => {
@@ -97,6 +99,8 @@ export const SettingsDrawer = () => {
           voiceCloned: "Φωνή κλωνοποιήθηκε ✓",
           voiceClear: "Επαναφορά",
           voiceUnavailable: "Απαιτεί ELEVENLABS_API_KEY στον server.",
+          generatePortrait: "Δημιουργία πορτρέτου",
+          generatingPortrait: "Σχεδιάζω…",
         }
       : {
           title: "Settings",
@@ -125,6 +129,8 @@ export const SettingsDrawer = () => {
           voiceCloned: "Voice cloned ✓",
           voiceClear: "Reset",
           voiceUnavailable: "Requires ELEVENLABS_API_KEY on the server.",
+          generatePortrait: "Generate portrait",
+          generatingPortrait: "Drawing…",
         };
 
   const close = () => setOpen(false);
@@ -242,6 +248,40 @@ export const SettingsDrawer = () => {
       setWikiError(error instanceof Error ? error.message : "Failed");
     } finally {
       setWikiBusy(false);
+    }
+  };
+
+  const generatePortrait = async () => {
+    if (portraitBusy) return;
+    const name = draft.name.trim();
+    if (!name) {
+      setPortraitError(lang === "el" ? "Όνομα πρώτα." : "Name first.");
+      return;
+    }
+    setPortraitBusy(true);
+    setPortraitError(null);
+    try {
+      const hint = (tagline || draft.extraInfo)?.toString().slice(0, 200) ?? "";
+      const response = await fetch("/api/portrait", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, hint, style: "portrait" }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body?.error || `HTTP ${response.status}`);
+      }
+      const data: { url?: string } = await response.json();
+      if (data.url) {
+        setDraft((d) => ({
+          ...d,
+          images: [{ url: data.url!, type: "image/jpeg", name: `${name} (AI)` }, ...d.images],
+        }));
+      }
+    } catch (error) {
+      setPortraitError(error instanceof Error ? error.message : "Failed");
+    } finally {
+      setPortraitBusy(false);
     }
   };
 
@@ -433,6 +473,26 @@ export const SettingsDrawer = () => {
             <button className="slot add-slot" onClick={() => fileInputRef.current?.click()}>
               <Icon name="plus" size={16} />
             </button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              className="side-link"
+              style={{
+                width: "auto",
+                padding: "6px 10px",
+                color: "var(--clay)",
+              }}
+              onClick={generatePortrait}
+              disabled={portraitBusy || !draft.name.trim()}
+              title={T.generatePortrait}
+            >
+              <Icon name="sparkles" size={12} />
+              {portraitBusy ? T.generatingPortrait : T.generatePortrait}
+            </button>
+            {portraitError && (
+              <span style={{ fontSize: 11, color: "var(--clay)" }}>{portraitError}</span>
+            )}
           </div>
         </div>
 
