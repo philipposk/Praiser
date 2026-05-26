@@ -17,6 +17,7 @@ export default defineConfig({
     command: "pnpm dev --port 3100",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
     env: {
       ...process.env,
       PRAISER_USE_GROQ_STUB: "true",
