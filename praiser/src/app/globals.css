@@ -703,6 +703,14 @@ button { font-family: inherit; cursor: pointer; }
 .toggle.on { background: var(--clay); }
 .toggle.on::after { left: 18px; }
 
+.theme-seg { display: inline-flex; background: var(--line); border-radius: 99px; padding: 2px; gap: 2px; }
+.theme-seg button {
+  border: 0; background: transparent; color: inherit; font: inherit; font-size: 12px;
+  padding: 4px 10px; border-radius: 99px; cursor: pointer;
+}
+.theme-seg button.on { background: var(--surface); box-shadow: var(--shadow-sm); }
+.theme-seg button:focus-visible { outline: 2px solid var(--clay); outline-offset: 1px; }
+
 .lightbox {
   position: fixed; inset: 0;
   background: rgba(27, 22, 17, 0.92);

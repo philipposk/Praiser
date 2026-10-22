@@ -42,20 +42,43 @@ test.describe("Praiser smoke", () => {
     });
   });
 
-  test("dark mode toggle persists to localStorage", async ({ page }) => {
+  test("theme picker saves Light/Dark/Auto to localStorage", async ({ page }) => {
     // Open settings drawer.
     await page.locator(".side-link", { hasText: /settings|ρυθμίσεις/i }).click();
     await expect(page.locator(".drawer h2")).toBeVisible();
 
-    // Toggle dark theme.
-    const darkRow = page.locator(".row-toggle", { hasText: /dark theme|σκούρο θέμα/i });
-    await darkRow.locator(".toggle").click();
+    // Pick Dark.
+    await page.getByRole("radio", { name: /^(dark|σκούρο)$/i }).click();
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
     // localStorage should reflect the choice (used by FOUC-free boot script).
     const stored = await page.evaluate(() => localStorage.getItem("praiser-theme"));
     expect(stored).toBe("dark");
+
+    // Back to Auto: follows the device (Playwright defaults to light).
+    await page.getByRole("radio", { name: /^(auto|αυτόματο)$/i }).click();
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
+    expect(await page.evaluate(() => localStorage.getItem("praiser-theme"))).toBe("auto");
+  });
+
+  test("new visitor follows a dark device with no flash", async ({ browser }) => {
+    const ctx = await browser.newContext({ colorScheme: "dark" });
+    const p = await ctx.newPage();
+    await p.route(/_next\/static\/chunks\/.*\.js/, (r) => r.abort());
+    await p.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(p.locator("html")).toHaveAttribute("data-theme", "dark");
+    await ctx.close();
+  });
+
+  test("old saved on/off choice is kept", async ({ browser }) => {
+    const ctx = await browser.newContext({ colorScheme: "dark" });
+    await ctx.addInitScript(() => localStorage.setItem("praiser-theme", "light"));
+    const p = await ctx.newPage();
+    await p.goto("/");
+    await p.waitForTimeout(1500);
+    await expect(p.locator("html")).not.toHaveAttribute("data-theme", "dark");
+    await ctx.close();
   });
 
   test("EL/EN toggle in topbar updates the empty state copy", async ({ page }) => {

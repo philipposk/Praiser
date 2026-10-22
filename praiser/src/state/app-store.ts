@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { THEME_KEY, applyTheme, modeFromSaved, readLocalMode, resolveDark, type ThemeMode } from "@/lib/theme";
 
 import { type Message, type PersonInfo, type Chat, type ChatMode } from "@/lib/types";
 import { nowIso } from "@/lib/utils";
@@ -21,6 +22,8 @@ type PersistedSettings = {
   autoSpeak: boolean;
   ttsVoiceUri: string | null;
   darkMode: boolean;
+  /** New: light | dark | auto. darkMode is kept (resolved value) so older clients still read it. */
+  themeMode?: ThemeMode;
   showSubjectPanel: boolean;
 };
 
@@ -44,7 +47,9 @@ type AppStore = {
   autoSpeak: boolean;
   ttsVoiceUri: string | null;
   liveMode: boolean;
+  /** Resolved: is the dark look showing right now. */
   darkMode: boolean;
+  themeMode: ThemeMode;
   showSubjectPanel: boolean;
   settingsOpen: boolean;
   /** Mode used by EmptyState when no person is loaded yet (set by alias routes like /roast). */
@@ -71,6 +76,7 @@ type AppStore = {
   setTtsVoiceUri: (uri: string | null) => void;
   setLiveMode: (value: boolean) => void;
   setDarkMode: (value: boolean) => void;
+  setThemeMode: (mode: ThemeMode) => void;
   setShowSubjectPanel: (value: boolean) => void;
   setSettingsOpen: (value: boolean) => void;
   setStartMode: (mode: ChatMode) => void;
@@ -102,6 +108,7 @@ const DEFAULTS = {
   autoSpeak: false,
   ttsVoiceUri: null as string | null,
   darkMode: false,
+  themeMode: "auto" as ThemeMode,
   showSubjectPanel: true,
 };
 
@@ -227,6 +234,7 @@ const extractPersistedSettings = (state: AppStore): PersistedSettings => ({
   autoSpeak: state.autoSpeak,
   ttsVoiceUri: state.ttsVoiceUri,
   darkMode: state.darkMode,
+  themeMode: state.themeMode,
   showSubjectPanel: state.showSubjectPanel,
 });
 
@@ -299,6 +307,8 @@ const loadSettingsFromAPI = async (): Promise<PersistedSettings> => {
       currentPersonId: migrated.currentPersonId,
       personInfo: undefined,
       version: SETTINGS_VERSION,
+      // From the raw save only, so a save with no theme at all means Auto.
+      themeMode: modeFromSaved(raw) ?? DEFAULTS.themeMode,
     };
   } catch {
     return { ...DEFAULTS };
@@ -360,6 +370,7 @@ const buildInitialState = () => ({
   autoSpeak: DEFAULTS.autoSpeak,
   ttsVoiceUri: DEFAULTS.ttsVoiceUri,
   darkMode: DEFAULTS.darkMode,
+  themeMode: DEFAULTS.themeMode,
   showSubjectPanel: DEFAULTS.showSubjectPanel,
   liveMode: false,
   settingsOpen: false,
@@ -610,13 +621,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setLiveMode: (value) => set({ liveMode: value }),
 
-  setDarkMode: (value) => {
-    set({ darkMode: value });
-    if (typeof document !== "undefined") {
-      if (value) document.documentElement.setAttribute("data-theme", "dark");
-      else document.documentElement.removeAttribute("data-theme");
-    }
-    safeLocalStorage.set("praiser-theme", value ? "dark" : "light");
+  setDarkMode: (value) => get().setThemeMode(value ? "dark" : "light"),
+
+  setThemeMode: (mode) => {
+    set({ themeMode: mode, darkMode: resolveDark(mode) });
+    applyTheme(mode);
+    safeLocalStorage.set(THEME_KEY, mode);
     debounceSettingsSave(get);
   },
 
@@ -674,6 +684,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       autoSpeak: DEFAULTS.autoSpeak,
       ttsVoiceUri: DEFAULTS.ttsVoiceUri,
       darkMode: DEFAULTS.darkMode,
+      themeMode: DEFAULTS.themeMode,
       showSubjectPanel: DEFAULTS.showSubjectPanel,
       liveMode: false,
       settingsOpen: false,
@@ -704,12 +715,14 @@ export const loadStoredSettings = async () => {
       chats: cached?.chats?.length ? cached.chats : cachedChats,
       autoSpeak: cached?.autoSpeak ?? DEFAULTS.autoSpeak,
       ttsVoiceUri: cached?.ttsVoiceUri ?? DEFAULTS.ttsVoiceUri,
-      darkMode: cached?.darkMode ?? DEFAULTS.darkMode,
       showSubjectPanel: cached?.showSubjectPanel ?? DEFAULTS.showSubjectPanel,
     });
-    if (cached?.darkMode && typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", "dark");
-    }
+  }
+  {
+    // This device's own pick wins, then what was saved, then Auto.
+    const mode = readLocalMode() ?? modeFromSaved(cached) ?? DEFAULTS.themeMode;
+    useAppStore.setState({ themeMode: mode, darkMode: resolveDark(mode) });
+    applyTheme(mode);
   }
 
   // Second pass: reconcile with API (source of truth).
@@ -729,15 +742,27 @@ export const loadStoredSettings = async () => {
     chats: settings.chats,
     autoSpeak: settings.autoSpeak ?? DEFAULTS.autoSpeak,
     ttsVoiceUri: settings.ttsVoiceUri ?? DEFAULTS.ttsVoiceUri,
-    darkMode: settings.darkMode ?? DEFAULTS.darkMode,
     showSubjectPanel: settings.showSubjectPanel ?? DEFAULTS.showSubjectPanel,
     praiseVolume: shouldResetPraiseFor(settings.praiseMode) ? 0 : 70,
   });
 
-  if (typeof document !== "undefined") {
-    if (settings.darkMode) document.documentElement.setAttribute("data-theme", "dark");
-    else document.documentElement.removeAttribute("data-theme");
-  }
+  const mode = readLocalMode() ?? modeFromSaved(settings) ?? DEFAULTS.themeMode;
+  useAppStore.setState({ themeMode: mode, darkMode: resolveDark(mode) });
+  applyTheme(mode);
+  watchOsTheme();
+};
+
+let osThemeWatched = false;
+/** While on Auto, follow the device when it switches between light and dark. */
+const watchOsTheme = () => {
+  if (osThemeWatched || typeof window === "undefined" || !window.matchMedia) return;
+  osThemeWatched = true;
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    const { themeMode } = useAppStore.getState();
+    if (themeMode !== "auto") return;
+    useAppStore.setState({ darkMode: resolveDark("auto") });
+    applyTheme("auto");
+  });
 };
 
 export const saveSettingsToServer = (immediate: boolean = false) => {
