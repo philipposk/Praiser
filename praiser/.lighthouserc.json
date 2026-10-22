@@ -1,8 +1,8 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "PRAISER_USE_GROQ_STUB=true node_modules/.bin/next start -p 3000",
-      "startServerReadyPattern": "Ready on",
+      "startServerCommand": "cd praiser && PRAISER_USE_GROQ_STUB=true node_modules/.bin/next start -p 3000",
+      "startServerReadyPattern": "Ready",
       "startServerReadyTimeout": 60000,
       "url": ["http://localhost:3000"],
       "numberOfRuns": 1,

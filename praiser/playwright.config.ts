@@ -14,7 +14,9 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "pnpm dev --port 3100",
+    // CI runs the production build (built in the step before). Next 16's dev
+    // server blocks its own JS for 127.0.0.1, so pages never hydrate there.
+    command: process.env.CI ? "pnpm start --port 3100" : "pnpm dev --port 3100",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
