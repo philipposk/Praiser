@@ -1,0 +1,26 @@
+# Praiser — full description
+
+> A free AI that praises, hypes and celebrates anyone: friend, family, partner, hero. English and Greek, voice and live conversation, no signup. https://praiser.6x7.gr · Made by 6x7 (https://6x7.gr).
+
+## What it does
+Tell Praiser about someone. In here we only speak well of them. Send a question, an image or a voice note, and it always finds what's praiseworthy, with specific, warm detail rather than generic flattery.
+
+## Ways to use it
+- **Ode:** write a short ode to someone.
+- **Photo:** send a photo of someone and get something nice said about them.
+- **Lore:** tell the story of someone.
+- **Tender:** three things that make someone special.
+- **Personas:** have the praise written in the voice of Socrates, Mr. Rogers, Mary Oliver, Bob Ross, Marcus Aurelius, Carl Sagan, Ada Lovelace or Heracles.
+- **Voice:** record a voice note, or have a live spoken conversation.
+
+## Good for
+Birthday and anniversary messages, wedding toasts, retirement and farewell cards, thank-you notes for teachers and colleagues, eulogies and tributes, cheering up a friend, or just saying out loud what you love about someone.
+
+## Languages
+English and Greek (switch in the header).
+
+## Privacy and accounts
+No signup needed to use it. Recent chats appear in the sidebar history; an account is optional.
+
+## Pricing
+Free.
