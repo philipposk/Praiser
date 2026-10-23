@@ -71,24 +71,20 @@ export const viewport = {
   userScalable: true,
 };
 
-// Inline script: read saved theme from localStorage before hydration to avoid FOUC.
-const THEME_BOOT = `
-(function(){try{
-  var c=document.cookie.match(/praiser-theme=(dark|light)/);
-  var v=c?c[1]:(localStorage.getItem('praiser-theme')||'light');
-  if(v==='dark'){document.documentElement.setAttribute('data-theme','dark');}
-}catch(e){}})();
-`;
+import { headers } from "next/headers";
+import { THEME_BOOT } from "@/lib/theme";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Set by src/proxy.ts; the CSP only lets scripts with this nonce run.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
       <body
         suppressHydrationWarning

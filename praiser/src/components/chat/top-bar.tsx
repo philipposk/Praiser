@@ -123,9 +123,9 @@ export const TopBar = () => {
             !
           </span>
         )}
-        <div className="lang-pill" role="tablist" aria-label="Language">
-          <button className={lang === "el" ? "on" : ""} onClick={() => setLang("el")}>EL</button>
-          <button className={lang === "en" ? "on" : ""} onClick={() => setLang("en")}>EN</button>
+        <div className="lang-pill" role="group" aria-label="Language">
+          <button type="button" aria-pressed={lang === "el"} className={lang === "el" ? "on" : ""} onClick={() => setLang("el")}>EL</button>
+          <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "on" : ""} onClick={() => setLang("en")}>EN</button>
         </div>
         <button className="icon-btn" aria-label="Share" onClick={onShare} disabled={sharing}>
           <Icon name="share" size={15} />

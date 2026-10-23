@@ -7,8 +7,9 @@
   --surface-2: #ECE3CF;
   --ink: #1B1611;
   --ink-2: #3D352A;
-  --muted: #7A6E5C;
-  --muted-2: #A89C86;
+  /* muted colors meet WCAG AA (4.5:1) on bg, surface and surface-2 */
+  --muted: #6B5F4E;
+  --muted-2: #6F6352;
   --line: #DDD2B9;
   --line-soft: #E8DFCA;
   --clay: #B8451F;
@@ -30,7 +31,7 @@
   --ink: #F2EBDC;
   --ink-2: #D9CFB8;
   --muted: #9B8E75;
-  --muted-2: #6D6553;
+  --muted-2: #908470;
   --line: #2E2820;
   --line-soft: #221D17;
   --clay: #D87A4E;
@@ -389,7 +390,6 @@ button { font-family: inherit; cursor: pointer; }
   padding: 12px 12px 10px;
   box-shadow: 0 8px 24px -16px rgba(27, 22, 17, 0.18);
   pointer-events: auto;
-  transition: border-color .15s ease;
 }
 .composer:focus-within { border-color: var(--ink-2); }
 .attach-strip {
@@ -703,6 +703,14 @@ button { font-family: inherit; cursor: pointer; }
 .toggle.on { background: var(--clay); }
 .toggle.on::after { left: 18px; }
 
+.theme-seg { display: inline-flex; background: var(--line); border-radius: 99px; padding: 2px; gap: 2px; }
+.theme-seg button {
+  border: 0; background: transparent; color: inherit; font: inherit; font-size: 12px;
+  padding: 4px 10px; border-radius: 99px; cursor: pointer;
+}
+.theme-seg button.on { background: var(--surface); box-shadow: var(--shadow-sm); }
+.theme-seg button:focus-visible { outline: 2px solid var(--clay); outline-offset: 1px; }
+
 .lightbox {
   position: fixed; inset: 0;
   background: rgba(27, 22, 17, 0.92);
@@ -740,6 +748,15 @@ button { font-family: inherit; cursor: pointer; }
     background: rgba(27, 22, 17, 0.45);
   }
   .sidebar-col.mobile-open .sidebar { width: 280px; }
-  .chat-scroll { padding: 60px 18px 200px; }
-  .composer-wrap { padding: 0 18px 16px; }
+  /* Phones: composer sits below the chat instead of floating over it, so
+     nothing you can tap ends up hidden underneath it. */
+  .chat-scroll { padding: 60px 18px 24px; }
+  .composer-wrap { position: relative; flex-shrink: 0; padding: 8px 18px 16px; }
+}
+
+/* Touch screens: buttons get a 48px tap area (WCAG 2.5.5 / Lighthouse tap-targets). */
+@media (pointer: coarse) {
+  .icon-btn, .send-btn { width: 48px; height: 48px; }
+  .lang-pill { height: 48px; }
+  .lang-pill button { min-width: 44px; height: 44px; }
 }

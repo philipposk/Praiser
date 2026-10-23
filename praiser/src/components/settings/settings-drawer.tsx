@@ -26,8 +26,8 @@ export const SettingsDrawer = () => {
   const removePerson = useAppStore((s) => s.removePerson);
   const setCurrentPerson = useAppStore((s) => s.setCurrentPerson);
 
-  const darkMode = useAppStore((s) => s.darkMode);
-  const setDarkMode = useAppStore((s) => s.setDarkMode);
+  const themeMode = useAppStore((s) => s.themeMode);
+  const setThemeMode = useAppStore((s) => s.setThemeMode);
   const showSubjectPanel = useAppStore((s) => s.showSubjectPanel);
   const setShowSubjectPanel = useAppStore((s) => s.setShowSubjectPanel);
   const autoSpeak = useAppStore((s) => s.autoSpeak);
@@ -82,8 +82,11 @@ export const SettingsDrawer = () => {
           general: "Γενικές",
           showSubj: "Δεξί πάνελ",
           showSubjSub: "Πορτρέτο, ψευδώνυμα, dial επαίνου",
-          theme: "Σκούρο θέμα",
-          themeSub: "Από την ανατολή στη δύση",
+          theme: "Θέμα",
+          themeSub: "Φωτεινό, σκούρο ή όπως η συσκευή σου",
+          themeLight: "Φωτεινό",
+          themeDark: "Σκούρο",
+          themeAuto: "Αυτόματο",
           voice: "Αυτόματη ομιλία",
           voiceSub: "Διαβάζει τις απαντήσεις φωναχτά",
           save: "Αποθήκευση",
@@ -112,8 +115,11 @@ export const SettingsDrawer = () => {
           general: "General",
           showSubj: "Right panel",
           showSubjSub: "Portrait, aliases, praise dial",
-          theme: "Dark theme",
-          themeSub: "From dawn to dusk",
+          theme: "Theme",
+          themeSub: "Light, dark, or match your device",
+          themeLight: "Light",
+          themeDark: "Dark",
+          themeAuto: "Auto",
           voice: "Auto-speak",
           voiceSub: "Read responses aloud",
           save: "Save",
@@ -571,11 +577,20 @@ export const SettingsDrawer = () => {
             <div className="row-toggle-text">{T.theme}</div>
             <div className="row-toggle-sub">{T.themeSub}</div>
           </div>
-          <button
-            className={"toggle " + (darkMode ? "on" : "")}
-            onClick={() => setDarkMode(!darkMode)}
-            aria-label="Toggle theme"
-          />
+          <div className="theme-seg" role="radiogroup" aria-label={T.theme}>
+            {(["light", "dark", "auto"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={themeMode === m}
+                className={themeMode === m ? "on" : ""}
+                onClick={() => setThemeMode(m)}
+              >
+                {m === "light" ? T.themeLight : m === "dark" ? T.themeDark : T.themeAuto}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="row-toggle">
           <div>
