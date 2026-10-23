@@ -71,17 +71,20 @@ export const viewport = {
   userScalable: true,
 };
 
+import { headers } from "next/headers";
 import { THEME_BOOT } from "@/lib/theme";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Set by src/proxy.ts; the CSP only lets scripts with this nonce run.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
       <body
         suppressHydrationWarning
