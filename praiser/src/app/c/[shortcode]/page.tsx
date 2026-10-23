@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import type { SharedChat } from "@/app/api/chats/share/route";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://praiser.vercel.app";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://praiser.6x7.gr").toLowerCase();
 
 type Params = { shortcode: string };
 

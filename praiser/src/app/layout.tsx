@@ -24,9 +24,11 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://praiser.vercel.app";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://praiser.6x7.gr").toLowerCase();
 
 export const metadata: Metadata = {
+  alternates: { canonical: "./" },
+  robots: { index: true, follow: true },
   title: "Praiser — AI that celebrates anyone you love",
   description:
     "Free AI that praises, hypes, and celebrates anyone — friend, family, partner, hero. Multi-language (EN + EL). Voice + live conversation. No signup.",
@@ -73,6 +75,7 @@ export const viewport = {
 
 import { headers } from "next/headers";
 import { THEME_BOOT } from "@/lib/theme";
+import { SiteJsonLd } from "@/components/SiteJsonLd";
 
 export default async function RootLayout({
   children,
@@ -90,6 +93,7 @@ export default async function RootLayout({
         suppressHydrationWarning
         className={`${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
       >
+        <SiteJsonLd />
         {children}
       </body>
     </html>
