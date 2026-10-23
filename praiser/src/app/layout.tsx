@@ -30,8 +30,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "./" },
   robots: { index: true, follow: true },
   title: "Praiser — AI that celebrates anyone you love",
-  description:
-    "Free AI that praises, hypes, and celebrates anyone — friend, family, partner, hero. Multi-language (EN + EL). Voice + live conversation. No signup.",
+  description: SITE_DESCRIPTION,
   applicationName: "Praiser",
   metadataBase: new URL(SITE_URL),
   appleWebApp: {
@@ -43,8 +42,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   openGraph: {
     title: "Praiser — AI that celebrates anyone you love",
-    description:
-      "Free AI that praises, hypes, and celebrates anyone. Voice + live conversation. EN + EL.",
+    description: SITE_DESCRIPTION,
     type: "website",
     url: SITE_URL,
     siteName: "Praiser",
@@ -60,8 +58,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Praiser — AI that celebrates anyone you love",
-    description:
-      "Free AI that praises, hypes, and celebrates anyone. EN + EL.",
+    description: SITE_DESCRIPTION,
     images: ["/api/og"],
   },
 };
@@ -75,7 +72,7 @@ export const viewport = {
 
 import { headers } from "next/headers";
 import { THEME_BOOT } from "@/lib/theme";
-import { SiteJsonLd } from "@/components/SiteJsonLd";
+import { SITE_DESCRIPTION, SiteJsonLd } from "@/components/SiteJsonLd";
 
 export default async function RootLayout({
   children,
